@@ -34,3 +34,11 @@ path = "../examples/runnable-trait.rs"
 [[example]]
 name = "ms-proof"
 path = "../examples/ms-proof.rs"
+
+[[example]]
+name = "method-scheduled"
+path = "../examples/method-scheduled.rs"
+
+[[example]]
+name = "combined-register-runnable"
+path = "../examples/combined-register-runnable.rs"

@@ -1,7 +1,7 @@
 use scheduled::{scheduled, SchedulerBuilder};
 
 /// Task with cron expression - runs every minute
-#[scheduled(cron = "0 * * * * *")]
+#[scheduled(cron = " * * * * *")]
 async fn cron_task() {
     println!("[CRON] Every minute task");
 }
@@ -13,7 +13,7 @@ async fn config_task() {
 }
 
 /// Task with initial delay (using shorthand "5s")
-#[scheduled(fixed_rate = "5s", initial_delay = 3, time_unit = "seconds")]
+#[scheduled(fixed_rate = "5s", initial_delay = 3)]
 async fn delayed_task() {
     println!("[DELAYED] Task with 3s initial delay, runs every 5s");
 }

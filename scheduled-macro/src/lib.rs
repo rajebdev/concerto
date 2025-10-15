@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{Expr, ExprLit, ExprPath, ItemFn, ItemImpl, Lit, Meta, MetaNameValue};
+use syn::{Expr, ExprLit, ExprPath, ItemFn, ItemImpl, ImplItem, Lit, Meta, MetaNameValue};
 
 /// Helper to create compile_error! token stream
 fn compile_error(message: &str) -> TokenStream {
@@ -213,9 +213,8 @@ fn validate_positive_value(value: &str, field_name: &str, task_name: &str, allow
 }
 
 /// Scheduled task macro that supports Spring Boot-like scheduling
-
 /// 
-/// This macro works with both standalone functions and Runnable trait implementations.
+/// This macro works with standalone functions, Runnable trait implementations, and impl blocks with methods.
 /// 
 /// # Examples
 /// 
@@ -231,6 +230,29 @@ fn validate_positive_value(value: &str, field_name: &str, task_name: &str, allow
 /// async fn five_seconds_task() {
 ///     println!("Runs every 5 seconds");
 /// }
+/// ```
+/// 
+/// ## Methods inside impl blocks (Registered via .register())
+/// 
+/// ```rust
+/// struct UserHandler {
+///     name: String,
+/// }
+/// 
+/// impl UserHandler {
+///     #[scheduled(fixed_rate = "5s")]
+///     async fn exe(&self) {
+///         println!("{}: Running every 5s", self.name);
+///     }
+/// }
+/// 
+/// // Usage:
+/// let handler = UserHandler { name: "MyHandler".to_string() };
+/// SchedulerBuilder::with_toml("config/application.toml")
+///     .register(handler)
+///     .build()
+///     .start()
+///     .await?;
 /// ```
 /// 
 /// ## Runnable Trait Implementation (Manual registration)
@@ -280,11 +302,26 @@ pub fn scheduled(args: TokenStream, input: TokenStream) -> TokenStream {
     
     // Try to parse as impl block
     if let Ok(input_impl) = syn::parse::<ItemImpl>(input.clone()) {
-        return handle_scheduled_impl(args, input_impl);
+        // Check if it has scheduled methods (indicated by having methods with #[scheduled])
+        let has_scheduled_attrs = input_impl.items.iter().any(|item| {
+            if let ImplItem::Fn(method) = item {
+                method.attrs.iter().any(|attr| attr.path().is_ident("scheduled"))
+            } else {
+                false
+            }
+        });
+
+        if has_scheduled_attrs {
+            // This is an impl block with scheduled methods
+            return handle_impl_with_scheduled_methods(args, input_impl);
+        } else {
+            // This is an impl Runnable block
+            return handle_scheduled_impl(args, input_impl);
+        }
     }
     
     // If neither works, provide helpful error
-    compile_error("scheduled macro can only be applied to:\n  1. Async functions (for auto-registered tasks)\n  2. impl Runnable blocks (for manually registered tasks)")
+    compile_error("scheduled macro can only be applied to:\n  1. Async functions (for auto-registered tasks)\n  2. impl blocks with #[scheduled] methods\n  3. impl Runnable blocks (for manually registered tasks)")
 }
 
 fn handle_scheduled_function(args: TokenStream, input_fn: ItemFn) -> TokenStream {
@@ -484,6 +521,98 @@ fn handle_scheduled_impl(args: TokenStream, input_impl: ItemImpl) -> TokenStream
     };
 
     TokenStream::from(expanded)
+}
+
+fn handle_impl_with_scheduled_methods(_args: TokenStream, mut input_impl: ItemImpl) -> TokenStream {
+    let impl_type = &input_impl.self_ty;
+
+    // Collect all scheduled methods and their metadata
+    let mut scheduled_methods = Vec::new();
+    let mut method_calls = Vec::new();
+
+    for item in &mut input_impl.items {
+        if let ImplItem::Fn(method) = item {
+            // Find #[scheduled] attribute
+            let scheduled_attr_idx = method.attrs.iter().position(|attr| attr.path().is_ident("scheduled"));
+            
+            if let Some(idx) = scheduled_attr_idx {
+                let attr = method.attrs.remove(idx);
+                let method_name = &method.sig.ident;
+                let method_name_str = method_name.to_string();
+
+                // Parse the attribute arguments
+                let attr_meta: Meta = attr.parse_args().expect("Failed to parse scheduled attribute");
+                let mut attr_args = syn::punctuated::Punctuated::<Meta, syn::Token![,]>::new();
+                
+                // Handle the meta
+                match attr_meta {
+                    Meta::List(list) => {
+                        // Parse the nested metas
+                        attr_args = list.parse_args_with(
+                            syn::punctuated::Punctuated::<Meta, syn::Token![,]>::parse_terminated
+                        ).expect("Failed to parse attribute arguments");
+                    }
+                    Meta::NameValue(nv) => {
+                        attr_args.push(Meta::NameValue(nv));
+                    }
+                    Meta::Path(_) => {
+                        // No arguments
+                    }
+                }
+
+                let (schedule_type, schedule_value, initial_delay_str, enabled_str, time_unit_str, zone_str, _time_unit_path) = 
+                    match parse_schedule_args(&attr_args, &method_name_str) {
+                        Ok(args) => args,
+                        Err(e) => return compile_error(&e),
+                    };
+
+                scheduled_methods.push(quote! {
+                    ::scheduled::scheduled_runtime::ScheduledMethodMetadata {
+                        method_name: stringify!(#method_name),
+                        schedule_type: #schedule_type,
+                        schedule_value: #schedule_value,
+                        initial_delay: #initial_delay_str,
+                        enabled: #enabled_str,
+                        time_unit: #time_unit_str,
+                        zone: #zone_str,
+                    }
+                });
+
+                method_calls.push(quote! {
+                    stringify!(#method_name) => ::std::boxed::Box::pin(self.#method_name())
+                });
+            }
+        }
+    }
+
+    let expanded = quote! {
+        #input_impl
+
+        impl ::scheduled::scheduled_runtime::ScheduledInstance for #impl_type {
+            fn scheduled_methods() -> ::std::vec::Vec<::scheduled::scheduled_runtime::ScheduledMethodMetadata> {
+                vec![
+                    #(#scheduled_methods),*
+                ]
+            }
+
+            fn call_scheduled_method(&self, method_name: &str) -> ::std::pin::Pin<::std::boxed::Box<dyn ::std::future::Future<Output = ()> + Send + '_>> {
+                match method_name {
+                    #(#method_calls,)*
+                    _ => ::std::boxed::Box::pin(async {}),
+                }
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+/// Internal macro to mark scheduled methods
+#[proc_macro_attribute]
+#[doc(hidden)]
+pub fn __scheduled_method(_args: TokenStream, input: TokenStream) -> TokenStream {
+    // Just pass through the method as-is, this is a marker attribute
+    input
 }
 
 fn parse_schedule_args(
