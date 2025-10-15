@@ -5,7 +5,7 @@ use std::sync::Arc;
 /// Trait for schedulable tasks
 /// 
 /// Implement this trait on your struct to make it schedulable.
-/// Use the `#[scheduled_impl]` macro to configure the schedule.
+/// Use the `#[scheduled]` macro to configure the schedule.
 /// 
 /// # Example
 /// 
@@ -16,7 +16,7 @@ use std::sync::Arc;
 ///     name: String,
 /// }
 /// 
-/// #[scheduled_impl(cron = "0 */5 * * * *")]
+/// #[scheduled(cron = "0 */5 * * * *")]
 /// impl Runnable for MyTask {
 ///     async fn run(&self) {
 ///         println!("Task {} is running", self.name);
@@ -28,7 +28,7 @@ pub trait Runnable: Send + Sync {
     fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>>;
 }
 
-/// Trait for extracting scheduling metadata from types annotated with #[scheduled_impl]
+/// Trait for extracting scheduling metadata from types annotated with #[scheduled]
 pub trait ScheduledMetadata {
     fn schedule_type() -> &'static str;
     fn schedule_value() -> &'static str;
@@ -94,7 +94,7 @@ where
 
 /// Global distributed slice for collecting runnable tasks
 /// 
-/// This slice is populated by the `#[scheduled_impl]` macro and only includes
+/// This slice is populated by the `#[scheduled]` macro and only includes
 /// tasks that are explicitly registered via `SchedulerBuilder::runnable()`
 #[linkme::distributed_slice]
 pub static RUNNABLE_TASKS: [fn() -> Option<RunnableTask>] = [..];

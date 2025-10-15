@@ -1,4 +1,4 @@
-use scheduled::{scheduled_impl, Runnable, SchedulerBuilder};
+use scheduled::{scheduled, Runnable, SchedulerBuilder};
 use std::pin::Pin;
 use std::future::Future;
 
@@ -19,7 +19,7 @@ impl UserTask {
 
 /// Implement Runnable with scheduling configuration
 /// This will run every 5 seconds
-#[scheduled_impl(fixed_rate = "5s")]
+#[scheduled(fixed_rate = "5s")]
 impl Runnable for UserTask {
     fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
         Box::pin(async move {
@@ -42,7 +42,7 @@ impl DatabaseCleanupTask {
     }
 }
 
-#[scheduled_impl(fixed_rate = "10s")]
+#[scheduled(fixed_rate = "10s")]
 impl Runnable for DatabaseCleanupTask {
     fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
         Box::pin(async move {
@@ -66,7 +66,7 @@ impl ReportGeneratorTask {
     }
 }
 
-#[scheduled_impl(fixed_delay = "15s")]
+#[scheduled(fixed_delay = "15s")]
 impl Runnable for ReportGeneratorTask {
     fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
         Box::pin(async move {

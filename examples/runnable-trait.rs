@@ -1,4 +1,4 @@
-use scheduled::{scheduled_impl, Runnable, SchedulerBuilder};
+use scheduled::{scheduled, Runnable, SchedulerBuilder};
 use std::pin::Pin;
 use std::future::Future;
 
@@ -18,7 +18,7 @@ impl UserTask {
 }
 
 /// Implement Runnable with scheduling configuration
-#[scheduled_impl(cron = "0 */5 * * * *")]
+#[scheduled(cron = "0 */5 * * * *")]
 impl Runnable for UserTask {
     fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
         Box::pin(async move {
@@ -41,7 +41,7 @@ impl DatabaseCleanupTask {
     }
 }
 
-#[scheduled_impl(fixed_rate = "10s")]
+#[scheduled(fixed_rate = "10s")]
 impl Runnable for DatabaseCleanupTask {
     fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
         Box::pin(async move {
@@ -65,7 +65,7 @@ impl ReportGeneratorTask {
     }
 }
 
-#[scheduled_impl(fixed_delay = "15s")]
+#[scheduled(fixed_delay = "15s")]
 impl Runnable for ReportGeneratorTask {
     fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
         Box::pin(async move {
@@ -87,7 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Build scheduler with registered tasks
     // Only tasks registered via .runnable() will execute
-    let _scheduler = SchedulerBuilder::with_toml("config/application.toml")?
+    let _scheduler = SchedulerBuilder::new()
         .runnable(user_task)      // Registers UserTask
         .runnable(cleanup_task)   // Registers DatabaseCleanupTask
         .runnable(report_task)    // Registers ReportGeneratorTask

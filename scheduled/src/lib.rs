@@ -79,7 +79,7 @@
 //! ```
 
 // Re-export macros
-pub use scheduled_macro::{scheduled, scheduled_impl};
+pub use scheduled_macro::scheduled;
 
 // Re-export core types
 pub use scheduled_runtime::{
