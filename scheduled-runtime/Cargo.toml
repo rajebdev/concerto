@@ -1,0 +1,11 @@
+[package]
+name = "scheduled-runtime"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { workspace = true }
+tokio-cron-scheduler = { workspace = true }
+config = { workspace = true }
+serde = { workspace = true }
+linkme = { workspace = true }

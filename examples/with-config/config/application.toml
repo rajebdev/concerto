@@ -1,0 +1,30 @@
+[app]
+# Task execution interval (default unit is milliseconds)
+interval = 5000
+
+# Time unit for intervals (milliseconds, seconds, minutes, hours, days)
+time_unit = "milliseconds"
+
+# Timezone for cron jobs (e.g., "Asia/Jakarta", "UTC", "local")
+zone = "Asia/Jakarta"
+
+# Enable/disable conditional task
+task_enabled = true
+
+# Custom cron expression
+cron_expression = "0 */2 * * * *"
+
+# Task with seconds
+fast_interval = 3
+fast_time_unit = "seconds"
+
+# Task with minutes
+backup_interval = 2
+backup_time_unit = "minutes"
+
+[database]
+host = "localhost"
+port = 5432
+
+[features]
+email_notifications = true

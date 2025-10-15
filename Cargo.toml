@@ -1,0 +1,23 @@
+# Workspace Cargo.toml
+[workspace]
+members = [
+    "scheduled-macro",
+    "scheduled-runtime",
+    "scheduled",
+]
+exclude = [
+    "examples/with-config",
+    "examples/with-config-yaml",
+    "examples/runnable-example",
+]
+resolver = "2"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-cron-scheduler = "0.15"
+config = "0.15"
+serde = { version = "1.0", features = ["derive"] }
+linkme = "0.3"
+syn = { version = "2.0", features = ["full"] }
+quote = "1.0"
+proc-macro2 = "1.0"

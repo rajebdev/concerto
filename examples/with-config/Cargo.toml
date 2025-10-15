@@ -1,0 +1,8 @@
+[package]
+name = "with-config"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+scheduled = { path = "../../scheduled" }
+tokio = { version = "1", features = ["full"] }

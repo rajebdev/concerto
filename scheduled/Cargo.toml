@@ -1,0 +1,36 @@
+[package]
+name = "scheduled"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+license = "MIT OR Apache-2.0"
+description = "Spring Boot-like task scheduling for Rust with config support"
+repository = "https://github.com/yourusername/scheduled-rs"
+keywords = ["scheduler", "cron", "task", "scheduled", "spring"]
+categories = ["asynchronous", "concurrency"]
+
+[dependencies]
+scheduled-macro = { path = "../scheduled-macro", version = "0.1.0" }
+scheduled-runtime = { path = "../scheduled-runtime", version = "0.1.0" }
+tokio-cron-scheduler = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+# Examples  
+[[example]]
+name = "basic"
+path = "../examples/basic.rs"
+
+[[example]]
+name = "advanced"
+path = "../examples/advanced.rs"
+
+[[example]]
+name = "runnable-trait"
+path = "../examples/runnable-trait.rs"
+
+[[example]]
+name = "ms-proof"
+path = "../examples/ms-proof.rs"

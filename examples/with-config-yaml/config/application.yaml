@@ -1,0 +1,35 @@
+app:
+  # Task execution interval (default unit is milliseconds)
+  interval: 7000
+  
+  # Time unit (milliseconds, seconds, minutes, hours, days)
+  time_unit: "milliseconds"
+  
+  # Timezone for cron jobs
+  zone: "Asia/Jakarta"
+  
+  # Enable/disable conditional task
+  task_enabled: true
+  
+  # Custom cron expression
+  cron_expression: "0 */3 * * * *"
+  
+  # Report settings
+  report:
+    interval: 30
+    time_unit: "minutes"
+  
+  # Notification settings
+  notifications:
+    enabled: true
+    email: "admin@example.com"
+
+database:
+  host: "localhost"
+  port: 5432
+  name: "myapp_db"
+
+features:
+  email_notifications: true
+  sms_alerts: false
+  logging_level: "info"
