@@ -359,6 +359,77 @@ fn handle_scheduled_impl(args: TokenStream, input_impl: ItemImpl) -> TokenStream
     let impl_type = &input_impl.self_ty;
     let type_name = quote!(#impl_type).to_string().replace(" ", "");
 
+    // ✅ STRICT VALIDATION: Check if implementing Runnable trait
+    if let Some((_, trait_path, _)) = &input_impl.trait_ {
+        let trait_name = quote!(#trait_path).to_string();
+        
+        // Check if it's implementing Runnable trait
+        if !trait_name.contains("Runnable") {
+            return compile_error(&format!(
+                "Invalid use of #[scheduled] on impl block for type '{}'.\n\
+                 \n\
+                 The #[scheduled] macro on impl blocks can ONLY be used with 'impl Runnable'.\n\
+                 \n\
+                 ❌ WRONG:\n\
+                 #[scheduled(...)]\n\
+                 impl {} {{ ... }}                    // Regular impl block\n\
+                 \n\
+                 #[scheduled(...)]\n\
+                 impl SomeTrait for {} {{ ... }}      // Other trait\n\
+                 \n\
+                 ✅ CORRECT:\n\
+                 #[scheduled(...)]\n\
+                 impl Runnable for {} {{\n\
+                     fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {{\n\
+                         Box::pin(async move {{\n\
+                             // Your scheduled task logic\n\
+                         }})\n\
+                     }}\n\
+                 }}\n\
+                 \n\
+                 💡 Alternative: Use #[scheduled] on standalone async functions for auto-registration:\n\
+                 #[scheduled(...)]\n\
+                 async fn my_task() {{\n\
+                     // Your task logic\n\
+                 }}",
+                type_name, type_name, type_name, type_name
+            ));
+        }
+    } else {
+        // No trait being implemented (regular impl block)
+        return compile_error(&format!(
+            "Invalid use of #[scheduled] on regular impl block for type '{}'.\n\
+             \n\
+             The #[scheduled] macro cannot be used on regular impl blocks.\n\
+             It must be used on 'impl Runnable for YourType'.\n\
+             \n\
+             ❌ WRONG:\n\
+             #[scheduled(...)]\n\
+             impl {} {{\n\
+                 async fn some_method(&self) {{ ... }}\n\
+             }}\n\
+             \n\
+             ✅ CORRECT Option 1 - Use impl Runnable:\n\
+             #[scheduled(...)]\n\
+             impl Runnable for {} {{\n\
+                 fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {{\n\
+                     Box::pin(async move {{\n\
+                         // Your scheduled task logic\n\
+                     }})\n\
+                 }}\n\
+             }}\n\
+             \n\
+             ✅ CORRECT Option 2 - Use standalone function:\n\
+             #[scheduled(...)]\n\
+             async fn my_scheduled_task() {{\n\
+                 // Your task logic - will be auto-registered\n\
+             }}\n\
+             \n\
+             📖 See examples/runnable-trait.rs for complete examples.",
+            type_name, type_name, type_name
+        ));
+    }
+
     let (schedule_type, schedule_value, initial_delay_str, enabled_str, time_unit_str, zone_str, time_unit_path) = 
         match parse_schedule_args(&attr_args, &type_name) {
             Ok(args) => args,
