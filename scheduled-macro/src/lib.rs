@@ -2,7 +2,116 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{Expr, ExprLit, ExprPath, ItemFn, ItemImpl, Lit, Meta, MetaNameValue};
 
+/// Helper to create compile_error! token stream
+fn compile_error(message: &str) -> TokenStream {
+    let error = syn::Error::new(proc_macro2::Span::call_site(), message);
+    error.to_compile_error().into()
+}
+
+/// Check if a value string has a time unit suffix (e.g., "5s", "10m")
+fn has_time_suffix(value: &str) -> bool {
+    // Check for config placeholder
+    if value.starts_with("${") {
+        return false;
+    }
+    
+    let trimmed = value.trim();
+    // Check if ends with valid suffixes (strict lowercase only)
+    trimmed.ends_with("ms") || 
+    trimmed.ends_with("s") || 
+    trimmed.ends_with("m") || 
+    trimmed.ends_with("h") || 
+    trimmed.ends_with("d")
+}
+
+/// Validate time suffix format (must be lowercase)
+/// Returns Some(error_message) if invalid, None if valid
+fn validate_time_suffix(value: &str, field_name: &str, task_name: &str) -> Option<String> {
+    if value.starts_with("${") {
+        return None; // Skip config placeholders
+    }
+    
+    let trimmed = value.trim();
+    
+    // Find where number ends
+    let mut split_pos = 0;
+    for (i, c) in trimmed.chars().enumerate() {
+        if !c.is_ascii_digit() {
+            split_pos = i;
+            break;
+        }
+    }
+    
+    if split_pos > 0 && split_pos < trimmed.len() {
+        let suffix = &trimmed[split_pos..];
+        
+        // Check if uppercase or invalid format
+        if suffix.chars().any(|c| c.is_uppercase()) {
+            return Some(format!(
+                "Invalid time suffix '{}' in {} for task '{}'.\n\
+                 Only lowercase suffixes are allowed: 's', 'm', 'h', 'ms', 'd'\n\
+                 Example: Use '5s' instead of '5S' or '5Sec'",
+                suffix, field_name, task_name
+            ));
+        }
+        
+        // Validate it's a recognized suffix
+        match suffix {
+            "ms" | "s" | "m" | "h" | "d" => {},
+            _ => {
+                return Some(format!(
+                    "Invalid time suffix '{}' in {} for task '{}'.\n\
+                     Valid suffixes: 'ms' (milliseconds), 's' (seconds), 'm' (minutes), 'h' (hours), 'd' (days)\n\
+                     Example: '5s', '10m', '2h', '500ms'",
+                    suffix, field_name, task_name
+                ));
+            }
+        }
+    }
+    None
+}
+
+/// Validate that value is not negative or zero (for intervals)
+/// Returns Some(error_message) if invalid, None if valid
+fn validate_positive_value(value: &str, field_name: &str, task_name: &str, allow_zero: bool) -> Option<String> {
+    if value.starts_with("${") {
+        return None; // Skip config placeholders (will be validated at runtime)
+    }
+    
+    let trimmed = value.trim();
+    
+    // Extract numeric part
+    let mut num_str = String::new();
+    for c in trimmed.chars() {
+        if c.is_ascii_digit() {
+            num_str.push(c);
+        } else {
+            break;
+        }
+    }
+    
+    if let Ok(num) = num_str.parse::<i64>() {
+        if num < 0 {
+            return Some(format!(
+                "Invalid {} value '{}' for task '{}'.\n\
+                 Value cannot be negative.",
+                field_name, value, task_name
+            ));
+        }
+        
+        if !allow_zero && num == 0 {
+            return Some(format!(
+                "Invalid {} value '{}' for task '{}'.\n\
+                 Interval cannot be zero (would cause infinite loop).",
+                field_name, value, task_name
+            ));
+        }
+    }
+    None
+}
+
 /// Scheduled task macro that supports Spring Boot-like scheduling
+
 /// 
 /// This macro works with both standalone functions and Runnable trait implementations.
 /// 
@@ -73,7 +182,7 @@ pub fn scheduled(args: TokenStream, input: TokenStream) -> TokenStream {
     }
     
     // If neither works, provide helpful error
-    panic!("scheduled macro can only be applied to:\n  1. Async functions (for auto-registered tasks)\n  2. impl Runnable blocks (for manually registered tasks)");
+    compile_error("scheduled macro can only be applied to:\n  1. Async functions (for auto-registered tasks)\n  2. impl Runnable blocks (for manually registered tasks)")
 }
 
 fn handle_scheduled_function(args: TokenStream, input_fn: ItemFn) -> TokenStream {
@@ -85,7 +194,10 @@ fn handle_scheduled_function(args: TokenStream, input_fn: ItemFn) -> TokenStream
     let fn_block = &input_fn.block;
 
     let (schedule_type, schedule_value, initial_delay_str, enabled_str, time_unit_str, zone_str) = 
-        parse_schedule_args(&attr_args, &fn_name.to_string());
+        match parse_schedule_args(&attr_args, &fn_name.to_string()) {
+            Ok(args) => args,
+            Err(e) => return compile_error(&e),
+        };
 
     // Generate unique registration function name
     let register_fn_name = syn::Ident::new(
@@ -130,7 +242,10 @@ fn handle_scheduled_impl(args: TokenStream, input_impl: ItemImpl) -> TokenStream
     let type_name = quote!(#impl_type).to_string().replace(" ", "");
 
     let (schedule_type, schedule_value, initial_delay_str, enabled_str, time_unit_str, zone_str) = 
-        parse_schedule_args(&attr_args, &type_name);
+        match parse_schedule_args(&attr_args, &type_name) {
+            Ok(args) => args,
+            Err(e) => return compile_error(&e),
+        };
 
     let expanded = quote! {
         #input_impl
@@ -168,7 +283,7 @@ fn handle_scheduled_impl(args: TokenStream, input_impl: ItemImpl) -> TokenStream
 fn parse_schedule_args(
     attr_args: &syn::punctuated::Punctuated<Meta, syn::Token![,]>,
     task_name: &str,
-) -> (String, String, String, String, String, String) {
+) -> Result<(String, String, String, String, String, String), String> {
     let mut schedule_type = None;
     let mut schedule_value = None;
     let mut initial_delay = None;
@@ -197,7 +312,7 @@ fn parse_schedule_args(
                         schedule_value = Some(match value {
                             Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) => i.base10_digits().to_string(),
                             Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => s.value(),
-                            _ => panic!("fixed_rate must be int or string"),
+                            _ => return Err("fixed_rate must be int or string".to_string()),
                         });
                     }
                     "fixed_delay" => {
@@ -205,42 +320,59 @@ fn parse_schedule_args(
                         schedule_value = Some(match value {
                             Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) => i.base10_digits().to_string(),
                             Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => s.value(),
-                            _ => panic!("fixed_delay must be int or string"),
+                            _ => return Err("fixed_delay must be int or string".to_string()),
                         });
                     }
                     "initial_delay" => {
                         initial_delay = Some(match value {
                             Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) => i.base10_digits().to_string(),
                             Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => s.value(),
-                            _ => panic!("initial_delay must be int or string"),
+                            _ => return Err("initial_delay must be int or string".to_string()),
                         });
                     }
                     "enabled" => {
                         enabled = Some(match value {
                             Expr::Lit(ExprLit { lit: Lit::Bool(b), .. }) => b.value.to_string(),
                             Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => s.value(),
-                            _ => panic!("enabled must be bool or string"),
+                            _ => return Err("enabled must be bool or string".to_string()),
                         });
                     }
                     "time_unit" => {
                         time_unit = Some(match value {
-                            Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => s.value(),
+                            Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => {
+                                // REJECT string format for time_unit
+                                return Err(format!(
+                                    "time_unit does not accept string values like '{}'. Use TimeUnit enum instead:\n\
+                                     Example: time_unit = TimeUnit::Seconds\n\
+                                     Valid options: TimeUnit::Milliseconds, TimeUnit::Seconds, TimeUnit::Minutes, TimeUnit::Hours, TimeUnit::Days",
+                                    s.value()
+                                ));
+                            }
                             Expr::Path(ExprPath { path, .. }) => {
                                 // Support TimeUnit::Days, TimeUnit::Hours, etc.
                                 if let Some(last_segment) = path.segments.last() {
-                                    last_segment.ident.to_string().to_lowercase()
+                                    let unit = last_segment.ident.to_string().to_lowercase();
+                                    // Validate it's a valid TimeUnit variant
+                                    match unit.as_str() {
+                                        "milliseconds" | "seconds" | "minutes" | "hours" | "days" => unit,
+                                        _ => return Err(format!(
+                                            "Invalid TimeUnit variant: TimeUnit::{}\n\
+                                             Valid options: TimeUnit::Milliseconds, TimeUnit::Seconds, TimeUnit::Minutes, TimeUnit::Hours, TimeUnit::Days",
+                                            last_segment.ident
+                                        )),
+                                    }
                                 } else {
-                                    panic!("Invalid time_unit path");
+                                    return Err("Invalid time_unit path".to_string());
                                 }
                             }
-                            _ => panic!("time_unit must be a string or TimeUnit::* constant (e.g., TimeUnit::Days)"),
+                            _ => return Err("time_unit must be a TimeUnit enum (e.g., TimeUnit::Seconds, TimeUnit::Minutes)".to_string()),
                         });
                     }
                     "zone" => {
                         if let Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) = value {
                             zone = Some(s.value());
                         } else {
-                            panic!("zone must be a string (e.g., 'Asia/Jakarta', 'UTC')");
+                            return Err("zone must be a string (e.g., 'Asia/Jakarta', 'UTC')".to_string());
                         }
                     }
                     _ => {}
@@ -258,37 +390,110 @@ fn parse_schedule_args(
     let time_unit_str = time_unit.clone().unwrap_or_else(|| "milliseconds".to_string());
     let zone_str = zone.clone().unwrap_or_else(|| "local".to_string());
 
+    // ========== COMPILE-TIME VALIDATIONS ==========
+    
+    // Rule 13: Validate config placeholders (require defaults OR make it compile error)
+    let values_to_check = vec![
+        (&schedule_value_str, schedule_type_str),
+        (&initial_delay_str, "initial_delay"),
+        (&enabled_str, "enabled"),
+    ];
+    
+    for (value, field_name) in values_to_check {
+        if value.starts_with("${") && value.ends_with("}") {
+            let inner = &value[2..value.len() - 1];
+            // Check if there's a default value (e.g., ${app.interval:10})
+            if !inner.contains(':') {
+                // COMPILE ERROR: Config placeholder without default
+                return Err(format!(
+                    "Config placeholder '{}' in {} for task '{}' has no default value.\n\
+                     \n\
+                     This will cause runtime errors if the config key '{}' is not found.\n\
+                     \n\
+                     To fix this error, add a default value:\n\
+                     {} = \"{}:default_value}}\"\n\
+                     \n\
+                     Examples:\n\
+                     - {}:5s}}        (5 seconds default)\n\
+                     - {}:true}}      (boolean default)\n\
+                     - {}:500}}       (numeric default)\n\
+                     \n\
+                     Or ensure the key exists in your config file before deployment.",
+                    value, field_name, task_name, inner,
+                    field_name, &value[..value.len()-1],
+                    &value[..value.len()-1],
+                    &value[..value.len()-1],
+                    &value[..value.len()-1]
+                ));
+            }
+        }
+    }
+    
+    // Rule 12: Validate time suffix format (must be lowercase)
+    if schedule_type_str != "cron" {
+        if let Some(err) = validate_time_suffix(&schedule_value_str, schedule_type_str, task_name) {
+            return Err(err);
+        }
+        if let Some(err) = validate_time_suffix(&initial_delay_str, "initial_delay", task_name) {
+            return Err(err);
+        }
+    }
+    
+    // Rule 10: Validate positive values
+    if schedule_type_str != "cron" {
+        if let Some(err) = validate_positive_value(&schedule_value_str, schedule_type_str, task_name, false) {
+            return Err(err); // interval cannot be zero
+        }
+        if let Some(err) = validate_positive_value(&initial_delay_str, "initial_delay", task_name, true) {
+            return Err(err); // delay can be zero
+        }
+    }
+    
+    // Rule 1, 3, 7: Warn if both suffix and time_unit are specified
+    if schedule_type_str != "cron" {
+        let value_has_suffix = has_time_suffix(&schedule_value_str);
+        let delay_has_suffix = has_time_suffix(&initial_delay_str);
+        let has_explicit_time_unit = time_unit.is_some() && time_unit_str.to_lowercase() != "milliseconds";
+        
+        if value_has_suffix && has_explicit_time_unit {
+            eprintln!("warning: time_unit parameter is ignored because '{}' already has a suffix in task '{}'", schedule_value_str, task_name);
+            eprintln!("         = help: remove suffix (use: {} = \"{}\", time_unit = TimeUnit::...) or remove time_unit parameter", 
+                schedule_type_str,
+                schedule_value_str.chars().take_while(|c| c.is_ascii_digit()).collect::<String>()
+            );
+        }
+        
+        if delay_has_suffix && has_explicit_time_unit {
+            eprintln!("warning: time_unit parameter is ignored for initial_delay because '{}' already has a suffix in task '{}'", initial_delay_str, task_name);
+            eprintln!("         = note: initial_delay will use its own suffix, not time_unit");
+        }
+    }
+
     // Emit compile-time warnings for misused parameters
     if schedule_type_str == "cron" {
         // Warn if time_unit is specified for cron
         if let Some(ref tu) = time_unit {
             if tu.to_lowercase() != "milliseconds" {
-                eprintln!(
-                    "warning: time_unit parameter '{}' is ignored for cron expressions in task '{}'",
-                    tu, task_name
-                );
-                eprintln!("         cron uses absolute time (calendar-based), not intervals");
+                eprintln!("warning: time_unit parameter '{}' is ignored for cron expressions in task '{}'", tu, task_name);
+                eprintln!("         = note: cron uses absolute time (calendar-based), not intervals");
             }
         }
     } else {
         // Warn if zone is specified for interval tasks
         if let Some(ref z) = zone {
             if z.to_lowercase() != "local" && !z.starts_with("${") {
-                eprintln!(
-                    "warning: zone parameter '{}' is ignored for interval-based tasks ({}) in task '{}'",
-                    z, schedule_type_str, task_name
-                );
-                eprintln!("         interval tasks (fixed_rate/fixed_delay) always use local system time");
+                eprintln!("warning: zone parameter '{}' is ignored for interval-based tasks ({}) in task '{}'", z, schedule_type_str, task_name);
+                eprintln!("         = note: interval tasks (fixed_rate/fixed_delay) always use local system time");
             }
         }
     }
 
-    (
+    Ok((
         schedule_type_str.to_string(),
         schedule_value_str,
         initial_delay_str,
         enabled_str,
         time_unit_str,
         zone_str,
-    )
+    ))
 }

@@ -159,13 +159,21 @@ impl SchedulerBuilder {
             });
 
         let initial_delay = resolve_config_value(task.initial_delay, config)?;
-        let initial_delay_value: u64 = initial_delay
-            .parse()
-            .unwrap_or_else(|_| {
-                eprintln!("    Warning: Invalid initial_delay '{}', using 0", initial_delay);
-                0
-            });
-        let initial_delay_millis = time_unit.to_millis(initial_delay_value);
+        
+        // Try to parse as shorthand duration (e.g., "5s", "10m") or plain number
+        let initial_delay_millis = if let Some((value, parsed_unit)) = TimeUnit::parse_duration(&initial_delay) {
+            // Has suffix like "2s", "500ms"
+            parsed_unit.to_millis(value)
+        } else {
+            // Plain number, use time_unit parameter
+            let initial_delay_value: u64 = initial_delay
+                .parse()
+                .unwrap_or_else(|_| {
+                    eprintln!("    Warning: Invalid initial_delay '{}', using 0", initial_delay);
+                    0
+                });
+            time_unit.to_millis(initial_delay_value)
+        };
 
         // Resolve zone from config
         let zone_str = resolve_config_value(task.zone, config)?;
@@ -290,13 +298,21 @@ impl SchedulerBuilder {
             });
 
         let initial_delay = resolve_config_value(task.initial_delay, config)?;
-        let initial_delay_value: u64 = initial_delay
-            .parse()
-            .unwrap_or_else(|_| {
-                eprintln!("    Warning: Invalid initial_delay '{}', using 0", initial_delay);
-                0
-            });
-        let initial_delay_millis = time_unit.to_millis(initial_delay_value);
+        
+        // Try to parse as shorthand duration (e.g., "5s", "10m") or plain number
+        let initial_delay_millis = if let Some((value, parsed_unit)) = TimeUnit::parse_duration(&initial_delay) {
+            // Has suffix like "2s", "500ms"
+            parsed_unit.to_millis(value)
+        } else {
+            // Plain number, use time_unit parameter
+            let initial_delay_value: u64 = initial_delay
+                .parse()
+                .unwrap_or_else(|_| {
+                    eprintln!("    Warning: Invalid initial_delay '{}', using 0", initial_delay);
+                    0
+                });
+            time_unit.to_millis(initial_delay_value)
+        };
 
         // Resolve zone from config
         let zone_str = resolve_config_value(task.zone, config)?;

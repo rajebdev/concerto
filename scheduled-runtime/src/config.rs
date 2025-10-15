@@ -20,6 +20,20 @@ pub fn load_yaml_config<P: AsRef<Path>>(path: P) -> Result<Config, Box<dyn std::
 }
 
 /// Resolve config placeholder like ${app.interval} or ${app.interval:default}
+/// 
+/// # Panics
+/// 
+/// Panics if the config key is not found and no default value is provided.
+/// 
+/// # Examples
+/// 
+/// ```
+/// // With default value - OK even if key not found
+/// ${app.interval:5s}
+/// 
+/// // Without default value - MUST exist in config or will panic
+/// ${app.interval}
+/// ```
 pub fn resolve_config_value(value: &str, config: &Config) -> Result<String, Box<dyn std::error::Error>> {
     if value.starts_with("${") && value.ends_with("}") {
         let inner = &value[2..value.len() - 1];
@@ -31,11 +45,34 @@ pub fn resolve_config_value(value: &str, config: &Config) -> Result<String, Box<
             
             match config.get_string(key) {
                 Ok(resolved) => Ok(resolved),
-                Err(_) => Ok(default_value.to_string()),
+                Err(_) => {
+                    eprintln!("warning: config key '{}' not found, using default value '{}'", key, default_value);
+                    Ok(default_value.to_string())
+                }
             }
         } else {
-            let resolved = config.get_string(inner)?;
-            Ok(resolved)
+            // No default value - key MUST exist
+            match config.get_string(inner) {
+                Ok(resolved) => Ok(resolved),
+                Err(_) => {
+                    Err(format!(
+                        "Config key '{}' not found and no default value provided.\n\
+                         \n\
+                         To fix this error, either:\n\
+                         1. Add the key to your config file:\n\
+                            [app]\n\
+                            {} = \"value\"\n\
+                         \n\
+                         2. Or provide a default value in the placeholder:\n\
+                            ${{{}:default_value}}\n\
+                         \n\
+                         Example: ${{{0}:5s}} for a 5 second default",
+                        inner, 
+                        inner.split('.').last().unwrap_or(inner),
+                        inner
+                    ).into())
+                }
+            }
         }
     } else {
         Ok(value.to_string())

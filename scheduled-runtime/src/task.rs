@@ -9,13 +9,16 @@ pub enum TimeUnit {
 }
 
 impl TimeUnit {
+    /// Parse TimeUnit from string representation.
+    /// Only accepts full lowercase enum names: "milliseconds", "seconds", "minutes", "hours", "days"
+    /// For shorthand notations like "5s", "10m", use `parse_duration` instead.
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
-            "milliseconds" | "millisecond" | "millis" | "milli" | "ms" => Some(TimeUnit::Milliseconds),
-            "seconds" | "second" | "s" | "sec" => Some(TimeUnit::Seconds),
-            "minutes" | "minute" | "m" | "min" => Some(TimeUnit::Minutes),
-            "hours" | "hour" | "h" | "hr" => Some(TimeUnit::Hours),
-            "days" | "day" | "d" => Some(TimeUnit::Days),
+            "milliseconds" => Some(TimeUnit::Milliseconds),
+            "seconds" => Some(TimeUnit::Seconds),
+            "minutes" => Some(TimeUnit::Minutes),
+            "hours" => Some(TimeUnit::Hours),
+            "days" => Some(TimeUnit::Days),
             _ => None,
         }
     }
@@ -32,6 +35,11 @@ impl TimeUnit {
     
     /// Parse a duration string like "5s", "10m", "2h", "500ms"
     /// Returns (value, TimeUnit) if successful
+    /// 
+    /// Strict rules:
+    /// - Only lowercase suffixes are accepted: "s", "m", "h", "ms" (NOT "S", "Sec", "MIN", etc.)
+    /// - Format must be: <number><suffix> (e.g., "5s", "100ms")
+    /// - No spaces allowed between number and suffix
     pub fn parse_duration(s: &str) -> Option<(u64, TimeUnit)> {
         let s = s.trim();
         
@@ -50,7 +58,16 @@ impl TimeUnit {
         
         let (num_str, unit_str) = s.split_at(split_pos);
         let value = num_str.parse::<u64>().ok()?;
-        let time_unit = Self::from_str(unit_str)?;
+        
+        // Strict lowercase-only suffix matching
+        let time_unit = match unit_str {
+            "ms" => TimeUnit::Milliseconds,
+            "s" => TimeUnit::Seconds,
+            "m" => TimeUnit::Minutes,
+            "h" => TimeUnit::Hours,
+            "d" => TimeUnit::Days,
+            _ => return None, // Reject uppercase or other variants
+        };
         
         Some((value, time_unit))
     }
