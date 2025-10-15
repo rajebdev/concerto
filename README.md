@@ -441,6 +441,100 @@ async fn process_queue() {
 }
 ```
 
+## Compiler Warnings
+
+This library performs compile-time validation and may emit warnings for common misconfigurations. These warnings indicate that your code will compile and run, but some parameters will be ignored.
+
+### Warning Codes
+
+#### **W001: time_unit Parameter Ignored (Suffix Present)**
+
+**Cause:** Both a time suffix (`s`, `m`, `h`, etc.) and `time_unit` parameter are specified.
+
+```rust
+// ❌ This will emit W001
+#[scheduled(fixed_rate = "5s", time_unit = TimeUnit::Minutes)]
+//                       ^^^ has suffix    ^^^^^^^^^^^^^^^^^^^ will be ignored
+async fn my_task() { }
+```
+
+**Why:** The suffix in the value takes precedence over the `time_unit` parameter.
+
+**Fix Options:**
+```rust
+// ✅ Option 1: Remove suffix
+#[scheduled(fixed_rate = "5", time_unit = TimeUnit::Seconds)]
+
+// ✅ Option 2: Remove time_unit (recommended)
+#[scheduled(fixed_rate = "5s")]
+
+// ✅ Option 3: Use config with time_unit
+#[scheduled(fixed_rate = "${app.interval:5}", time_unit = TimeUnit::Seconds)]
+```
+
+---
+
+#### **W002: time_unit Parameter Ignored (Cron Expression)**
+
+**Cause:** `time_unit` parameter is specified for a cron-based schedule.
+
+```rust
+// ❌ This will emit W002
+#[scheduled(cron = "0 */5 * * * *", time_unit = TimeUnit::Seconds)]
+//                                  ^^^^^^^^^^^^^^^^^^^^^^^^ ignored
+async fn my_task() { }
+```
+
+**Why:** Cron expressions use absolute calendar time, not intervals. The `time_unit` parameter only applies to interval-based schedules (`fixed_rate`, `fixed_delay`).
+
+**Fix:**
+```rust
+// ✅ Remove time_unit
+#[scheduled(cron = "0 */5 * * * *")]
+async fn my_task() { }
+```
+
+---
+
+#### **W003: zone Parameter Ignored (Interval-Based Schedule)**
+
+**Cause:** `zone` parameter is specified for `fixed_rate` or `fixed_delay` schedule.
+
+```rust
+// ❌ This will emit W003
+#[scheduled(fixed_rate = "5s", zone = "Asia/Jakarta")]
+//                             ^^^^^^^^^^^^^^^^^^^^^^ ignored
+async fn my_task() { }
+```
+
+**Why:** Interval-based tasks (`fixed_rate`, `fixed_delay`) always use local system time. Timezones only apply to cron expressions which are calendar-based.
+
+**Fix:**
+```rust
+// ✅ Remove zone for intervals
+#[scheduled(fixed_rate = "5s")]
+
+// ✅ Or use cron if you need timezone
+#[scheduled(cron = "0 */5 * * * *", zone = "Asia/Jakarta")]
+```
+
+---
+
+### Compile Errors vs Warnings
+
+| Condition | Type | Reason |
+|-----------|------|--------|
+| Parameter ignored (suffix + time_unit) | ⚠️ **Warning W001** | Non-fatal: code works, parameter ignored |
+| time_unit for cron | ⚠️ **Warning W002** | Non-fatal: code works, parameter not applicable |
+| zone for interval | ⚠️ **Warning W003** | Non-fatal: code works, parameter not applicable |
+| Malformed config placeholder (`"${xxx"`) | ❌ **Compile Error** | Fatal: will crash at runtime |
+| Config + suffix mix (`"${app.val}s"`) | ❌ **Compile Error** | Fatal: ambiguous behavior |
+| Invalid time suffix (`"5S"` uppercase) | ❌ **Compile Error** | Fatal: invalid format |
+| Negative or zero interval | ❌ **Compile Error** | Fatal: would cause infinite loop |
+| time_unit as config placeholder | ❌ **Compile Error** | Fatal: must be compile-time constant |
+
+---
+
 ## Cron Expression Format
 
 ```

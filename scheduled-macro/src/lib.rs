@@ -59,11 +59,30 @@ fn validate_time_suffix(value: &str, field_name: &str, task_name: &str) -> Optio
         match suffix {
             "ms" | "s" | "m" | "h" | "d" => {},
             _ => {
+                // Try to suggest closest match
+                let suggestion = match suffix.to_lowercase().as_str() {
+                    "sec" | "second" | "seconds" => "Did you mean 's' (seconds)?",
+                    "min" | "minute" | "minutes" => "Did you mean 'm' (minutes)?",
+                    "hr" | "hour" | "hours" => "Did you mean 'h' (hours)?",
+                    "day" | "days" => "Did you mean 'd' (days)?",
+                    "millisecond" | "milliseconds" | "millis" => "Did you mean 'ms' (milliseconds)?",
+                    _ => "Valid suffixes: 'ms', 's', 'm', 'h', 'd'",
+                };
+                
                 return Some(format!(
                     "Invalid time suffix '{}' in {} for task '{}'.\n\
-                     Valid suffixes: 'ms' (milliseconds), 's' (seconds), 'm' (minutes), 'h' (hours), 'd' (days)\n\
-                     Example: '5s', '10m', '2h', '500ms'",
-                    suffix, field_name, task_name
+                     \n\
+                     help: {}\n\
+                     \n\
+                     Valid time suffixes:\n\
+                     - 'ms' = milliseconds\n\
+                     - 's'  = seconds\n\
+                     - 'm'  = minutes\n\
+                     - 'h'  = hours\n\
+                     - 'd'  = days\n\
+                     \n\
+                     Examples: '5s', '10m', '2h', '500ms', '7d'",
+                    suffix, field_name, task_name, suggestion
                 ));
             }
         }
@@ -534,11 +553,35 @@ fn parse_schedule_args(
                                             time_unit_display = Some(display_str);
                                             unit
                                         },
-                                        _ => return Err(format!(
-                                            "Invalid TimeUnit variant: TimeUnit::{}\n\
-                                             Valid options: TimeUnit::Milliseconds, TimeUnit::Seconds, TimeUnit::Minutes, TimeUnit::Hours, TimeUnit::Days",
-                                            last_segment.ident
-                                        )),
+                                        _ => {
+                                            // Provide smart suggestions for common typos
+                                            let suggestion = match unit.as_str() {
+                                                "millisecond" | "millis" | "ms" => "Did you mean TimeUnit::Milliseconds?",
+                                                "second" | "sec" | "s" => "Did you mean TimeUnit::Seconds?",
+                                                "minute" | "min" | "m" => "Did you mean TimeUnit::Minutes?",
+                                                "hour" | "hr" | "h" => "Did you mean TimeUnit::Hours?",
+                                                "day" | "d" => "Did you mean TimeUnit::Days?",
+                                                _ => "",
+                                            };
+                                            
+                                            let help_text = if !suggestion.is_empty() {
+                                                format!("\n   = help: {}", suggestion)
+                                            } else {
+                                                String::new()
+                                            };
+                                            
+                                            return Err(format!(
+                                                "Invalid TimeUnit variant: TimeUnit::{}{}\n\
+                                                 \n\
+                                                 Valid TimeUnit options:\n\
+                                                 - TimeUnit::Milliseconds\n\
+                                                 - TimeUnit::Seconds\n\
+                                                 - TimeUnit::Minutes\n\
+                                                 - TimeUnit::Hours\n\
+                                                 - TimeUnit::Days",
+                                                last_segment.ident, help_text
+                                            ));
+                                        }
                                     }
                                 } else {
                                     return Err("Invalid time_unit path".to_string());
@@ -598,16 +641,25 @@ fn parse_schedule_args(
         let has_explicit_time_unit = time_unit.is_some() && time_unit_str.to_lowercase() != "milliseconds";
         
         if value_has_suffix && has_explicit_time_unit {
-            eprintln!("warning: time_unit parameter is ignored because '{}' already has a suffix in task '{}'", schedule_value_str, task_name);
-            eprintln!("         = help: remove suffix (use: {} = \"{}\", time_unit = TimeUnit::...) or remove time_unit parameter", 
-                schedule_type_str,
-                schedule_value_str.chars().take_while(|c| c.is_ascii_digit()).collect::<String>()
-            );
+            let numeric_value = schedule_value_str.chars().take_while(|c| c.is_ascii_digit()).collect::<String>();
+            eprintln!("\nwarning[W001]: time_unit parameter is ignored because '{}' already has a suffix", schedule_value_str);
+            eprintln!("  --> task '{}'", task_name);
+            eprintln!("   |");
+            eprintln!("   = help: remove suffix OR remove time_unit parameter");
+            eprintln!("   = note: suffix in value takes precedence over time_unit");
+            eprintln!();
+            eprintln!("   Fix options:");
+            eprintln!("     1. Keep suffix:      {} = \"{}\"", schedule_type_str, schedule_value_str);
+            eprintln!("     2. Use time_unit:    {} = \"{}\", time_unit = TimeUnit::...", schedule_type_str, numeric_value);
+            eprintln!();
         }
         
         if delay_has_suffix && has_explicit_time_unit {
-            eprintln!("warning: time_unit parameter is ignored for initial_delay because '{}' already has a suffix in task '{}'", initial_delay_str, task_name);
-            eprintln!("         = note: initial_delay will use its own suffix, not time_unit");
+            eprintln!("\nwarning[W001]: time_unit parameter is ignored for initial_delay because '{}' already has a suffix", initial_delay_str);
+            eprintln!("  --> task '{}'", task_name);
+            eprintln!("   |");
+            eprintln!("   = note: initial_delay will use its own suffix, not time_unit");
+            eprintln!();
         }
     }
 
@@ -617,16 +669,24 @@ fn parse_schedule_args(
         if let Some(ref tu) = time_unit {
             if tu.to_lowercase() != "milliseconds" {
                 let display = time_unit_display.as_deref().unwrap_or(tu);
-                eprintln!("warning: time_unit parameter {} is ignored for cron expressions in task '{}'", display, task_name);
-                eprintln!("         = note: cron uses absolute time (calendar-based), not intervals");
+                eprintln!("\nwarning[W002]: time_unit parameter {} is ignored for cron expressions", display);
+                eprintln!("  --> task '{}'", task_name);
+                eprintln!("   |");
+                eprintln!("   = note: cron uses absolute calendar time, not intervals");
+                eprintln!("   = help: remove time_unit parameter (it has no effect on cron schedules)");
+                eprintln!();
             }
         }
     } else {
         // Warn if zone is specified for interval tasks
         if let Some(ref z) = zone {
             if z.to_lowercase() != "local" && !z.starts_with("${") {
-                eprintln!("warning: zone parameter '{}' is ignored for interval-based tasks ({}) in task '{}'", z, schedule_type_str, task_name);
-                eprintln!("         = note: interval tasks (fixed_rate/fixed_delay) always use local system time");
+                eprintln!("\nwarning[W003]: zone parameter '{}' is ignored for interval-based tasks ({})", z, schedule_type_str);
+                eprintln!("  --> task '{}'", task_name);
+                eprintln!("   |");
+                eprintln!("   = note: interval tasks (fixed_rate/fixed_delay) always use local system time");
+                eprintln!("   = help: use cron expression if you need timezone support");
+                eprintln!();
             }
         }
     }
