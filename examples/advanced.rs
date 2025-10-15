@@ -32,10 +32,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   - app.task_enabled: Enable/disable conditional_task");
     println!("\n");
     
-    let _scheduler = SchedulerBuilder::new()
-        .register_all()
-        .build()
-        .await?;
+    // Build scheduler (auto-discovers #[scheduled] functions)
+    let scheduler = SchedulerBuilder::new().build();
+    
+    // Start the scheduler
+    let _handle = scheduler.start().await?;
     
     println!("\n✅ Press Ctrl+C to stop.\n");
     

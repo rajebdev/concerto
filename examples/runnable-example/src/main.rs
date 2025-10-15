@@ -86,14 +86,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cleanup_task = DatabaseCleanupTask::new("production_db");
     let report_task = ReportGeneratorTask::new("Monthly Sales");
 
-    // Build scheduler with registered tasks
-    // Only tasks registered via .runnable() will execute
-    let _scheduler = SchedulerBuilder::with_toml("config/application.toml")?
+    // Build scheduler with registered tasks (pure setup, no errors)
+    let scheduler = SchedulerBuilder::with_toml("config/application.toml")
         .runnable(user_task)      // Registers UserTask
         .runnable(cleanup_task)   // Registers DatabaseCleanupTask
         .runnable(report_task)    // Registers ReportGeneratorTask
-        .start()
-        .await?;
+        .build();                 // <- No ? needed, pure setup
+
+    // Start the scheduler (this is where errors can happen)
+    let _handle = scheduler.start().await?;
 
     println!("\n✅ All tasks registered and scheduler started!");
     println!("📝 Tasks will run according to their schedules:");

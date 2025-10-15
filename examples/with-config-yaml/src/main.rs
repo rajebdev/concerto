@@ -114,11 +114,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("💡 You can use boolean literals: enabled = true or enabled = false");
     println!("\n");
 
-    // Start scheduler with SchedulerBuilder and YAML config
-    let _scheduler = SchedulerBuilder::with_yaml("config/application.yaml")?
-        .register_all()
-        .build()
-        .await?;
+    // Build scheduler with YAML config (auto-discovers #[scheduled] functions)
+    let scheduler = SchedulerBuilder::with_yaml("config/application.yaml").build();
+    
+    // Start the scheduler
+    let _handle = scheduler.start().await?;
 
     println!("\n✅ Scheduler started! Press Ctrl+C to stop.\n");
 

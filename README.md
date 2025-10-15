@@ -26,8 +26,10 @@ tokio = { version = "1", features = ["full"] }
 
 ## Quick Start
 
+### Option 1: Function-based Tasks (Auto-discovery)
+
 ```rust
-use scheduled::scheduled;
+use scheduled::{scheduled, SchedulerBuilder};
 
 // Run every 5 minutes
 #[scheduled(cron = "0 */5 * * * *")]
@@ -36,21 +38,99 @@ async fn every_five_minutes() {
 }
 
 // Run every 30 seconds
-#[scheduled(fixed_rate = 30)]
+#[scheduled(fixed_rate = "30s")]
 async fn every_30_seconds() {
     println!("Fixed rate task!");
 }
 
-// Read interval from config
-#[scheduled(fixed_rate = "${app.interval}")]
-async fn from_config() {
-    println!("Config-based task!");
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Build scheduler (auto-discovers #[scheduled] functions)
+    let scheduler = SchedulerBuilder::new().build();
+    
+    // Start the scheduler
+    let handle = scheduler.start().await?;
+    
+    // Keep running until Ctrl+C
+    tokio::signal::ctrl_c().await?;
+    
+    // Graceful shutdown
+    handle.shutdown().await?;
+    Ok(())
+}
+```
+
+### Option 2: Struct-based Tasks (Manual registration)
+
+```rust
+use scheduled::{scheduled, Runnable, ScheduledMetadata, SchedulerBuilder};
+use std::pin::Pin;
+use std::future::Future;
+
+struct MyTask {
+    name: String,
+}
+
+// Macro provides metadata (schedule info)
+#[scheduled(fixed_rate = "5s")]
+impl Runnable for MyTask {
+    fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
+        Box::pin(async move {
+            println!("Task {} is running!", self.name);
+        })
+    }
 }
 
 #[tokio::main]
-async fn main() {
-    scheduled::start_scheduler().await.unwrap();
-    tokio::signal::ctrl_c().await.unwrap();
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let task = MyTask { name: "MyTask".to_string() };
+    
+    // Build scheduler and register task manually
+    let scheduler = SchedulerBuilder::new()
+        .runnable(task)  // Manual registration required
+        .build();        // No ? needed - pure setup
+    
+    // Start the scheduler
+    let handle = scheduler.start().await?;  // Errors happen here
+    
+    tokio::signal::ctrl_c().await?;
+    handle.shutdown().await?;
+    Ok(())
+}
+```
+
+### Option 3: Mixed (Both patterns)
+
+```rust
+// Auto-discovered function
+#[scheduled(fixed_rate = "10s")]
+async fn background_task() {
+    println!("Auto task");
+}
+
+// Manual struct
+#[scheduled(fixed_rate = "5s")]
+impl Runnable for MyTask {
+    fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
+        Box::pin(async move {
+            println!("Manual task");
+        })
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let task = MyTask::new();
+    
+    // Combine both
+    let scheduler = SchedulerBuilder::new()
+        .runnable(task)     // Manual task
+        .build();           // + auto-discovered functions
+    
+    let handle = scheduler.start().await?;
+    tokio::signal::ctrl_c().await?;
+    handle.shutdown().await?;
+    Ok(())
 }
 ```
 
@@ -225,36 +305,69 @@ use scheduled::{SchedulerBuilder};
 use config::Config;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let custom_config = Config::builder()
         .add_source(config::File::with_name("my_config"))
-        .build()
-        .unwrap();
+        .build()?;
 
-    let scheduler = SchedulerBuilder::with_config(custom_config)
-        .await
-        .unwrap()
-        .register_all()
-        .await
-        .unwrap()
-        .start()
-        .await
-        .unwrap();
+    // Build with custom config
+    let scheduler = SchedulerBuilder::with_config(custom_config).build();
+    
+    // Start scheduler
+    let handle = scheduler.start().await?;
 
-    tokio::signal::ctrl_c().await.unwrap();
+    tokio::signal::ctrl_c().await?;
+    handle.shutdown().await?;
+    Ok(())
 }
 ```
 
-### Access Config in Tasks
+### Using TOML/YAML Config Files
 
 ```rust
-use scheduled::{scheduled};
+use scheduled::{SchedulerBuilder};
 
-#[scheduled(fixed_rate = 30)]
-async fn task_with_config() {
-    let value = CONFIG.get_string("app.name").unwrap_or_default();
-    println!("App name: {}", value);
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Option 1: TOML config (panics on error - fail fast during setup)
+    let scheduler = SchedulerBuilder::with_toml("config/application.toml")
+        .build();
+    
+    // Option 2: YAML config (panics on error - fail fast during setup)
+    let scheduler = SchedulerBuilder::with_yaml("config/application.yaml")
+        .build();
+    
+    let handle = scheduler.start().await?;
+    tokio::signal::ctrl_c().await?;
+    handle.shutdown().await?;
+    Ok(())
 }
+```
+
+### Scheduler Builder API
+
+```rust
+// All available methods:
+let scheduler = SchedulerBuilder::new()                             // Default config
+    // OR
+    .with_toml("config.toml")                                       // TOML config (no ?)
+    // OR
+    .with_yaml("config.yaml")                                       // YAML config (no ?)
+    // OR
+    .with_config(custom_config)                                     // Custom Config
+    
+    // Register runnable instances (optional, can chain multiple)
+    .runnable(task1)
+    .runnable(task2)
+    .runnable(task3)
+    
+    .build();                                                       // Build (no ?)
+
+// Start the scheduler
+let handle = scheduler.start().await?;                              // Start (can error)
+
+// Graceful shutdown
+handle.shutdown().await?;
 ```
 
 ## Examples

@@ -22,10 +22,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("📊 Task 1: Every 500ms (milliseconds)");
     println!("📊 Task 2: Every 2s (seconds)\n");
     
-    let _scheduler = SchedulerBuilder::new()
-        .register_all()
-        .build()
-        .await?;
+    // Build scheduler (auto-discovers #[scheduled] functions)
+    let scheduler = SchedulerBuilder::new().build();
+    
+    // Start the scheduler
+    let _handle = scheduler.start().await?;
     
     println!("✅ Both tasks running! Watch the difference:\n");
     
@@ -33,7 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
     
     let final_count = COUNTER.load(Ordering::SeqCst);
-    println!("\n� RESULTS after 10 seconds:");
+    println!("\n📈 RESULTS after 10 seconds:");
     println!("   Milliseconds task (500ms): {} executions", final_count);
     println!("   Expected: ~20 times (10000ms / 500ms)");
     println!("   ✅ MILLISECONDS WORK PERFECTLY!\n");

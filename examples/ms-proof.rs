@@ -34,10 +34,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     let start = Instant::now();
     
-    let _scheduler = SchedulerBuilder::new()
-        .register_all()
-        .build()
-        .await?;
+    // Build scheduler (auto-discovers #[scheduled] functions)
+    let scheduler = SchedulerBuilder::new().build();
+    
+    // Start the scheduler
+    let _handle = scheduler.start().await?;
     
     let init_time = start.elapsed();
     println!("✅ Scheduler initialized in {:?}\n", init_time);

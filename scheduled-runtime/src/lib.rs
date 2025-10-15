@@ -13,5 +13,5 @@ pub use config::{load_toml_config, load_yaml_config};
 pub use linkme;
 pub use registry::SCHEDULED_TASKS;
 pub use runnable::{create_runnable_task, Runnable, RunnableTask, ScheduledMetadata, RUNNABLE_TASKS};
-pub use scheduler::{SchedulerBuilder, SchedulerHandle};
+pub use scheduler::{Scheduler, SchedulerBuilder, SchedulerHandle};
 pub use task::{ScheduledTask, TimeUnit};

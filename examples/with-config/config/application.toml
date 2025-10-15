@@ -2,9 +2,6 @@
 # Task execution interval (default unit is milliseconds)
 interval = 5000
 
-# Time unit for intervals (milliseconds, seconds, minutes, hours, days)
-time_unit = "milliseconds"
-
 # Timezone for cron jobs (e.g., "Asia/Jakarta", "UTC", "local")
 zone = "Asia/Jakarta"
 
@@ -14,13 +11,11 @@ task_enabled = true
 # Custom cron expression
 cron_expression = "0 */2 * * * *"
 
-# Task with seconds
-fast_interval = 3
-fast_time_unit = "seconds"
+# Task with seconds (using shorthand suffix)
+fast_interval = "3s"
 
-# Task with minutes
+# Task with minutes (number only, time_unit specified in code)
 backup_interval = 2
-backup_time_unit = "minutes"
 
 [database]
 host = "localhost"

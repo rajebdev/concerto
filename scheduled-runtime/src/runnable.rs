@@ -2,6 +2,8 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use crate::task::TimeUnit;
+
 /// Trait for schedulable tasks
 /// 
 /// Implement this trait on your struct to make it schedulable.
@@ -36,6 +38,12 @@ pub trait ScheduledMetadata {
     fn enabled() -> &'static str;
     fn time_unit() -> &'static str;
     fn zone() -> &'static str;
+    
+    /// Get the TimeUnit enum (used when time_unit is specified as TimeUnit::*)
+    /// Returns None if time_unit was not explicitly set (uses default from string)
+    fn time_unit_enum() -> Option<TimeUnit> {
+        None
+    }
 }
 
 /// Internal representation of a runnable task with its schedule configuration

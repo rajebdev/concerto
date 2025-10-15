@@ -1,7 +1,7 @@
-use scheduled::{scheduled, SchedulerBuilder};
+use scheduled::{scheduled, SchedulerBuilder, TimeUnit};
 
 /// Task with interval from config file (using milliseconds by default)
-#[scheduled(fixed_rate = "${app.interval}", time_unit = "${app.time_unit}")]
+#[scheduled(fixed_rate = "${app.interval}")]
 async fn config_interval_task() {
     println!("🔄 [CONFIG] Task running every 5000ms (5 seconds) from config");
 }
@@ -12,14 +12,14 @@ async fn config_cron_task() {
     println!("⏰ [CRON] Task running with cron from config (Asia/Jakarta timezone)");
 }
 
-/// Task using seconds from config
-#[scheduled(fixed_rate = "${app.fast_interval}", time_unit = "${app.fast_time_unit}")]
+/// Task using seconds from config (config value should include suffix like "3s")
+#[scheduled(fixed_rate = "${app.fast_interval}")]
 async fn fast_task() {
     println!("⚡ [FAST] Running every 3 seconds");
 }
 
-/// Task using minutes as time unit
-#[scheduled(fixed_rate = "${app.backup_interval}", time_unit = "${app.backup_time_unit}")]
+/// Task using minutes as time unit (config returns number, time_unit is compile-time)
+#[scheduled(fixed_rate = "${app.backup_interval}", time_unit = TimeUnit::Minutes)]
 async fn backup_task() {
     println!("💾 [BACKUP] Running backup every 2 minutes");
 }
@@ -72,10 +72,10 @@ async fn five_minute_task() {
     println!("⏱️  [5-MIN] This task runs every 5 minutes (using TimeUnit::Minutes)");
 }
 
-/// Task with string literal "minutes" (also works!)
-#[scheduled(fixed_rate = 10, time_unit = "minutes")]
+/// Task with TimeUnit::Minutes (also works without scheduled:: prefix)
+#[scheduled(fixed_rate = 10, time_unit = TimeUnit::Minutes)]
 async fn ten_minute_task() {
-    println!("🕐 [10-MIN] This task runs every 10 minutes (using string \"minutes\")");
+    println!("🕐 [10-MIN] This task runs every 10 minutes (using TimeUnit::Minutes)");
 }
 
 /// Task with TimeUnit::Days constant
@@ -84,10 +84,10 @@ async fn daily_task() {
     println!("📅 [DAILY] This task runs every 1 day (using TimeUnit::Days)");
 }
 
-/// Task with string literal "days" (also works!)
-#[scheduled(fixed_rate = 2, time_unit = "days")]
+/// Task with TimeUnit::Days (also works!)
+#[scheduled(fixed_rate = 2, time_unit = TimeUnit::Days)]
 async fn every_two_days_task() {
-    println!("📆 [2-DAYS] This task runs every 2 days (using string \"days\")");
+    println!("📆 [2-DAYS] This task runs every 2 days (using TimeUnit::Days)");
 }
 
 /// Task with boolean literal enabled = true
@@ -121,7 +121,7 @@ async fn jakarta_morning_task() {
 }
 
 /// ⚠️ WARNING EXAMPLE: time_unit on cron (will show warning but still works)
-#[scheduled(cron = "0 */2 * * * *", time_unit = scheduled::TimeUnit::Minutes)]
+#[scheduled(cron = "0 */2 * * * *", time_unit = TimeUnit::Minutes)]
 async fn cron_with_ignored_time_unit() {
     println!("⚠️  [CRON-WARN] This cron runs every 2 minutes (time_unit parameter is ignored)");
 }
@@ -154,11 +154,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   - zone on interval tasks will show warning (it's ignored)");
     println!("\n");
 
-    // Start scheduler with SchedulerBuilder and TOML config
-    let _scheduler = SchedulerBuilder::with_toml("config/application.toml")?
-        .register_all()
-        .build()
-        .await?;
+    // Build scheduler with TOML config (auto-discovers #[scheduled] functions)
+    let scheduler = SchedulerBuilder::with_toml("config/application.toml").build();
+    
+    // Start the scheduler
+    let _handle = scheduler.start().await?;
 
     println!("\n✅ Scheduler started! Press Ctrl+C to stop.\n");
 
