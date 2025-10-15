@@ -93,13 +93,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db_backup = DatabaseBackup::new("main_db");
     let email_sender = EmailSender::new(50);
 
-    // Build scheduler with BOTH approaches
+    // Build scheduler with UNIFIED .register() for BOTH approaches
     let scheduler = SchedulerBuilder::new()
         // PART 1: Register instance with #[scheduled] methods
         .register(user_service)
-        // PART 2: Add Runnable trait implementations
-        .runnable(db_backup)
-        .runnable(email_sender)
+        // PART 2: Register Runnable trait implementations (now also works with .register()!)
+        .register(db_backup)
+        .register(email_sender)
         .build();
 
     // Start the scheduler

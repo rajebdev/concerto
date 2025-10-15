@@ -86,11 +86,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let report_task = ReportGeneratorTask::new("Monthly Sales");
 
     // Build scheduler with registered tasks
-    // Only tasks registered via .runnable() will execute
+    // Only tasks registered via .register() will execute
     let scheduler = SchedulerBuilder::new()
-        .runnable(user_task)      // Registers UserTask
-        .runnable(cleanup_task)   // Registers DatabaseCleanupTask
-        .runnable(report_task)    // Registers ReportGeneratorTask
+        .register(user_task)      // Registers UserTask
+        .register(cleanup_task)   // Registers DatabaseCleanupTask
+        .register(report_task)    // Registers ReportGeneratorTask
         .build();                 // Build the scheduler
     
     // Start the scheduler

@@ -594,51 +594,44 @@ impl SchedulerBuilder {
         }
     }
 
-    /// Register a runnable task instance
+    /// Register an instance with #[scheduled] methods
     ///
-    /// # Example
+    /// This unified method can handle both:
+    /// - Types implementing `Runnable` trait (with `#[scheduled]` on impl Runnable block)
+    /// - Types with `#[scheduled]` methods (method-based scheduling)
     ///
-    /// ```rust
-    /// let user_task = UserTask::new();
+    /// The Rust compiler will automatically choose the correct implementation based on the
+    /// traits that your type implements.
     ///
-    /// let scheduler = SchedulerBuilder::with_toml("config/application.toml")?
-    ///     .runnable(user_task)
-    ///     .build();
-    ///
-    /// scheduler.start().await?;
-    /// ```
-    pub fn runnable<T>(mut self, instance: T) -> Self
-    where
-        T: Runnable + ScheduledMetadata + 'static,
-    {
-        let task = create_runnable_task(instance);
-        self.runnable_tasks.push(task);
-        self
-    }
-
-    /// Register an instance with scheduled methods
-    ///
-    /// # Example
+    /// # Example with #[scheduled] methods
     ///
     /// ```rust
-    /// struct UserHandler {
-    ///     name: String,
-    /// }
-    /// 
-    /// impl UserHandler {
+    /// #[scheduled]
+    /// impl UserService {
     ///     #[scheduled(fixed_rate = "5s")]
-    ///     async fn exe(&self) {
-    ///         println!("{}: Running", self.name);
+    ///     async fn sync_users(&self) {
+    ///         println!("Syncing users");
     ///     }
     /// }
     ///
-    /// let handler = UserHandler { name: "MyHandler".to_string() };
-    ///
-    /// let scheduler = SchedulerBuilder::with_toml("config/application.toml")
-    ///     .register(handler)
+    /// let scheduler = SchedulerBuilder::new()
+    ///     .register(UserService::new())
     ///     .build();
+    /// ```
     ///
-    /// scheduler.start().await?;
+    /// # Example with Runnable trait
+    ///
+    /// ```rust
+    /// #[scheduled(fixed_rate = "5s")]
+    /// impl Runnable for MyTask {
+    ///     async fn run(&self) {
+    ///         println!("Running task");
+    ///     }
+    /// }
+    ///
+    /// let scheduler = SchedulerBuilder::new()
+    ///     .register(MyTask::new())
+    ///     .build();
     /// ```
     pub fn register<T>(mut self, instance: T) -> Self
     where
@@ -665,6 +658,35 @@ impl SchedulerBuilder {
             caller,
         });
         
+        self
+    }
+
+    /// Register a runnable task instance (alias for `.register()`)
+    ///
+    /// This method is kept for backward compatibility and convenience.
+    /// It works identically to `.register()` but may be more intuitive when
+    /// working with `Runnable` trait implementations.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// #[scheduled(fixed_rate = "10s")]
+    /// impl Runnable for BackupTask {
+    ///     async fn run(&self) {
+    ///         println!("Running backup");
+    ///     }
+    /// }
+    ///
+    /// let scheduler = SchedulerBuilder::new()
+    ///     .runnable(BackupTask::new())  // Same as .register()
+    ///     .build();
+    /// ```
+    pub fn runnable<T>(mut self, instance: T) -> Self
+    where
+        T: Runnable + ScheduledMetadata + 'static,
+    {
+        let task = create_runnable_task(instance);
+        self.runnable_tasks.push(task);
         self
     }
 

@@ -1,9 +1,9 @@
 use scheduled::{scheduled, SchedulerBuilder};
 
-/// Task with interval from YAML config file (in milliseconds by default)
-#[scheduled(fixed_rate = "${app.interval}", time_unit = "${app.time_unit}")]
+/// Task with interval from YAML config file (using shorthand with suffix)
+#[scheduled(fixed_rate = "${app.interval}")]
 async fn yaml_interval_task() {
-    println!("🔄 [YAML CONFIG] Task running every 7000ms (7 seconds) from config");
+    println!("🔄 [YAML CONFIG] Task running every 7 seconds from config");
 }
 
 /// Task with cron from YAML config and Jakarta timezone
@@ -12,8 +12,8 @@ async fn yaml_cron_task() {
     println!("⏰ [YAML CRON] Task running with cron from YAML config (Asia/Jakarta)");
 }
 
-/// Task using minutes from nested config
-#[scheduled(fixed_rate = "${app.report.interval}", time_unit = "${app.report.time_unit}")]
+/// Task using minutes from nested config (using TimeUnit constant)
+#[scheduled(fixed_rate = "${app.report.interval}", time_unit = scheduled::TimeUnit::Minutes)]
 async fn report_task() {
     println!("📊 [REPORT] Generating report every 30 minutes");
 }

@@ -220,7 +220,9 @@ fn validate_positive_value(value: &str, field_name: &str, task_name: &str, allow
 /// 
 /// ## Standalone Functions (Auto-registered)
 /// 
-/// ```rust
+/// ```rust,ignore
+/// use scheduled_macro::scheduled;
+/// 
 /// #[scheduled(cron = "0 */5 * * * *")]
 /// async fn my_cron_task() {
 ///     println!("Runs every 5 minutes");
@@ -234,7 +236,10 @@ fn validate_positive_value(value: &str, field_name: &str, task_name: &str, allow
 /// 
 /// ## Methods inside impl blocks (Registered via .register())
 /// 
-/// ```rust
+/// ```rust,ignore
+/// use scheduled_macro::scheduled;
+/// use scheduled::SchedulerBuilder;
+/// 
 /// struct UserHandler {
 ///     name: String,
 /// }
@@ -247,18 +252,23 @@ fn validate_positive_value(value: &str, field_name: &str, task_name: &str, allow
 /// }
 /// 
 /// // Usage:
-/// let handler = UserHandler { name: "MyHandler".to_string() };
-/// SchedulerBuilder::with_toml("config/application.toml")
-///     .register(handler)
-///     .build()
-///     .start()
-///     .await?;
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let handler = UserHandler { name: "MyHandler".to_string() };
+///     SchedulerBuilder::with_toml("config/application.toml")
+///         .register(handler)
+///         .build()
+///         .start()
+///         .await?;
+///     Ok(())
+/// }
 /// ```
 /// 
 /// ## Runnable Trait Implementation (Manual registration)
 /// 
-/// ```rust
-/// use scheduled::{scheduled, Runnable};
+/// ```rust,ignore
+/// use scheduled_macro::scheduled;
+/// use scheduled::{Runnable, SchedulerBuilder};
 /// use std::pin::Pin;
 /// use std::future::Future;
 /// 
@@ -276,12 +286,16 @@ fn validate_positive_value(value: &str, field_name: &str, task_name: &str, allow
 /// }
 /// 
 /// // Usage:
-/// let user_task = UserTask { name: "MyTask".to_string() };
-/// 
-/// SchedulerBuilder::with_toml("config/application.toml")?
-///     .runnable(user_task)
-///     .start()
-///     .await?;
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let user_task = UserTask { name: "MyTask".to_string() };
+///     
+///     SchedulerBuilder::with_toml("config/application.toml")
+///         .register(user_task)
+///         .start()
+///         .await?;
+///     Ok(())
+/// }
 /// ```
 /// 
 /// # Parameters
@@ -517,6 +531,30 @@ fn handle_scheduled_impl(args: TokenStream, input_impl: ItemImpl) -> TokenStream
             fn zone() -> &'static str { #zone_str }
             
             #time_unit_enum_impl
+        }
+
+        // BONUS: Also implement ScheduledInstance for Runnable types
+        // This allows using .register() for both method-based and Runnable-based tasks!
+        impl ::scheduled::scheduled_runtime::ScheduledInstance for #impl_type {
+            fn scheduled_methods() -> ::std::vec::Vec<::scheduled::scheduled_runtime::ScheduledMethodMetadata> {
+                // Runnable types have no methods, but we create a single "run" method entry
+                vec![
+                    ::scheduled::scheduled_runtime::ScheduledMethodMetadata {
+                        method_name: "run",
+                        schedule_type: #schedule_type,
+                        schedule_value: #schedule_value,
+                        initial_delay: #initial_delay_str,
+                        enabled: #enabled_str,
+                        time_unit: #time_unit_str,
+                        zone: #zone_str,
+                    }
+                ]
+            }
+
+            fn call_scheduled_method(&self, _method_name: &str) -> ::std::pin::Pin<::std::boxed::Box<dyn ::std::future::Future<Output = ()> + Send + '_>> {
+                // Call the run() method from Runnable trait
+                <Self as ::scheduled::scheduled_runtime::Runnable>::run(self)
+            }
         }
     };
 

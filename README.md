@@ -87,7 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Build scheduler and register task manually
     let scheduler = SchedulerBuilder::new()
-        .runnable(task)  // Manual registration required
+        .register(task)  // Manual registration with unified API
         .build();        // No ? needed - pure setup
     
     // Start the scheduler
@@ -124,7 +124,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Combine both
     let scheduler = SchedulerBuilder::new()
-        .runnable(task)     // Manual task
+        .register(task)     // Manual task with unified API
         .build();           // + auto-discovered functions
     
     let handle = scheduler.start().await?;
@@ -357,9 +357,9 @@ let scheduler = SchedulerBuilder::new()                             // Default c
     .with_config(custom_config)                                     // Custom Config
     
     // Register runnable instances (optional, can chain multiple)
-    .runnable(task1)
-    .runnable(task2)
-    .runnable(task3)
+    .register(task1)
+    .register(task2)
+    .register(task3)
     
     .build();                                                       // Build (no ?)
 

@@ -1,9 +1,6 @@
 app:
-  # Task execution interval (default unit is milliseconds)
-  interval: 7000
-  
-  # Time unit (milliseconds, seconds, minutes, hours, days)
-  time_unit: "milliseconds"
+  # Task execution interval (using shorthand format with suffix)
+  interval: "7s"
   
   # Timezone for cron jobs
   zone: "Asia/Jakarta"
@@ -14,10 +11,9 @@ app:
   # Custom cron expression
   cron_expression: "0 */3 * * * *"
   
-  # Report settings
+  # Report settings (interval value only, time_unit is compile-time constant)
   report:
     interval: 30
-    time_unit: "minutes"
   
   # Notification settings
   notifications:

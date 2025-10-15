@@ -14,7 +14,7 @@
 //!
 //! ## Quick Start with SchedulerBuilder
 //!
-//! ```rust
+//! ```no_run
 //! use scheduled::{scheduled, SchedulerBuilder};
 //!
 //! #[scheduled(cron = "0 */5 * * * *")]
@@ -27,20 +27,18 @@
 //!     println!("This runs every 30 seconds");
 //! }
 //!
-//! #[scheduled(fixed_rate = "${app.interval}")]
+//! #[scheduled(fixed_rate = "${app.interval:10s}")]
 //! async fn from_config() {
 //!     println!("Interval comes from config file");
 //! }
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     // Start with YAML config
-//!     let _scheduler = SchedulerBuilder::with_yaml("config/application.yaml")
-//!         .await?
-//!         .register_all()
-//!         .await?
-//!         .build()
-//!         .await?;
+//!     // Build and start scheduler
+//!     let scheduler = SchedulerBuilder::with_yaml("config/application.yaml")
+//!         .build();
+//!     
+//!     let _handle = scheduler.start().await?;
 //!     
 //!     // Keep app running
 //!     tokio::signal::ctrl_c().await?;
