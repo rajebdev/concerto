@@ -90,6 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create instances
     let user_service = UserService::new("Production");
+    let user_service_staging = UserService::new("Staging");
     let db_backup = DatabaseBackup::new("main_db");
     let email_sender = EmailSender::new(50);
 
@@ -97,6 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let scheduler = SchedulerBuilder::new()
         // PART 1: Register instance with #[scheduled] methods
         .register(user_service)
+        .register(user_service_staging)
         // PART 2: Register Runnable trait implementations (now also works with .register()!)
         .register(db_backup)
         .register(email_sender)
