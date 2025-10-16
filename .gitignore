@@ -15,3 +15,5 @@ Cargo.lock
 # Config (keep template only)
 config/local.toml
 *.local.toml
+
+benchmark*.csv
