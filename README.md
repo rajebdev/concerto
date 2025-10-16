@@ -1,24 +1,26 @@
 # 🎻 Concerto
 
+[![Crates.io](https://img.shields.io/crates/v/concerto)](https://crates.io/crates/concerto)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE.md)
+[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)](https://www.rust-lang.org)
+
 > **Orchestrate your scheduled tasks with precision timing**
 
-Like a musical concerto where every instrument plays at the perfect moment, **Concerto** orchestrates your scheduled tasks with precision timing.
-
-Inspired by Spring Boot's `@Scheduled`, designed for Rust.
-
----
+Concerto is a powerful task scheduling library for Rust, inspired by Spring Boot's `@Scheduled` annotation. It brings enterprise-grade scheduling capabilities to the Rust ecosystem with a clean, declarative API.
 
 ## ✨ Features
 
-- 🚀 **Simple API** - Annotation-based scheduling similar to Spring Boot's `@Scheduled`
-- ⏰ **Cron Support** - Full cron expression support with timezone
-- 🔄 **Fixed Rate & Delay** - Schedule tasks at fixed intervals or delays
-- ⚙️ **Config Integration** - Read scheduling parameters from config files using `${...}` placeholders
+- 🚀 **Simple API** - Declarative scheduling with `#[scheduled]` attribute macro
+- ⏰ **Cron Support** - Full cron expressions with timezone support
+- 🔄 **Interval Scheduling** - Fixed rate and fixed delay execution
+- ⚙️ **Config Integration** - TOML/YAML configuration with `${...}` placeholders
 - 🎯 **Conditional Execution** - Enable/disable tasks via configuration
-- ⏳ **Initial Delay** - Delay the first execution of a task
-- 🕐 **Time Units** - Support for milliseconds, seconds, minutes, hours, and days
-- 🌍 **Timezone Support** - Specify timezone for cron expressions (e.g., "Asia/Jakarta")
+- ⏳ **Initial Delay** - Delay first execution of tasks
+- 🕐 **Time Units** - Support for ms, s, m, h, d
+- 🌍 **Timezone Support** - Specify timezone for cron expressions
+- 📊 **Structured Logging** - Production-ready logging with `tracing` crate
 - 🔧 **Environment Variables** - Override config with environment variables
+- ✅ **Compile-time Validation** - Catch configuration errors early
 
 ## 📦 Installation
 
@@ -26,35 +28,36 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-concerto = { path = "./concerto" }
+concerto = "0.1"
 tokio = { version = "1", features = ["full"] }
+tracing-subscriber = "0.3"  # For logging
 ```
 
 ## 🚀 Quick Start
 
-### Option 1: Function-based Tasks (Auto-discovery)
-
 ```rust
 use concerto::{scheduled, SchedulerBuilder};
 
-// Run every 5 minutes
+// Auto-discovered scheduled function
 #[scheduled(cron = "0 */5 * * * *")]
 async fn every_five_minutes() {
-    println!("Executing scheduled task!");
+    println!("Executing every 5 minutes!");
 }
 
-// Run every 30 seconds
 #[scheduled(fixed_rate = "30s")]
 async fn every_30_seconds() {
-    println!("Fixed rate task!");
+    println!("Executing every 30 seconds!");
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Build scheduler (auto-discovers #[scheduled] functions)
-    let scheduler = SchedulerBuilder::new().build();
+    // Initialize logging
+    tracing_subscriber::fmt()
+        .with_env_filter("info")
+        .init();
     
-    // Start the scheduler
+    // Build and start scheduler
+    let scheduler = SchedulerBuilder::new().build();
     let handle = scheduler.start().await?;
     
     // Keep running until Ctrl+C
@@ -66,499 +69,135 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Option 2: Struct-based Tasks (Manual registration)
+## 📚 Documentation
+
+### Scheduling Options
+
+#### Cron Expression
 
 ```rust
-use concerto::{scheduled, Runnable, SchedulerBuilder};
-
-struct MyTask {
-    name: String,
-}
-
-// Macro provides metadata (schedule info)
-#[scheduled(fixed_rate = "5s")]
-impl Runnable for MyTask {
-    fn run(&self) {
-        println!("Task {} is running!", self.name);
-    }
-}
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let task = MyTask { name: "MyTask".to_string() };
-    
-    // Build scheduler and register task manually
-    let scheduler = SchedulerBuilder::new()
-        .register(task)  // Manual registration with unified API
-        .build();        // No ? needed - pure setup
-    
-    // Start the scheduler
-    let handle = scheduler.start().await?;  // Errors happen here
-    
-    tokio::signal::ctrl_c().await?;
-    handle.shutdown().await?;
-    Ok(())
-}
-```
-
-### Option 3: Mixed (Both patterns)
-
-```rust
-// Auto-discovered function
-#[scheduled(fixed_rate = "10s")]
-async fn background_task() {
-    println!("Auto task");
-}
-
-// Manual struct
-#[scheduled(fixed_rate = "5s")]
-impl Runnable for MyTask {
-    fn run(&self) {
-        println!("Manual task");
-    }
-}
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let task = MyTask::new();
-    
-    // Combine both
-    let scheduler = SchedulerBuilder::new()
-        .register(task)     // Manual task with unified API
-        .build();           // + auto-discovered functions
-    
-    let handle = scheduler.start().await?;
-    tokio::signal::ctrl_c().await?;
-    handle.shutdown().await?;
-    Ok(())
-}
-```
-
-## Configuration
-
-Create `config/application.toml`:
-
-```toml
-[app]
-interval = "60"
-
-[app.schedule]
-cron = "0 0 * * * *"
-enabled = true
-```
-
-Or use environment variables:
-
-```bash
-export APP_INTERVAL=120
-export APP_SCHEDULE_CRON="0 */10 * * * *"
-export APP_SCHEDULE_ENABLED=false
-```
-
-## Scheduling Options
-
-### Cron Expression
-
-```rust
-// Basic cron (uses local timezone)
+// Basic cron (local timezone)
 #[scheduled(cron = "0 */5 * * * *")]
-async fn every_5_minutes() {
-    // Runs every 5 minutes
-}
+async fn every_5_minutes() { }
 
-// Cron with specific timezone
+// With timezone
 #[scheduled(cron = "0 0 9 * * *", zone = "Asia/Jakarta")]
-async fn jakarta_morning() {
-    // Runs at 9:00 AM Jakarta time every day
-}
+async fn jakarta_morning() { }
 
-// Cron with config placeholder
+// From config
 #[scheduled(cron = "${app.cron}", zone = "${app.zone:local}")]
-async fn config_cron() {
-    // Reads cron expression and timezone from config
-}
+async fn config_cron() { }
 ```
 
-Cron format: `second minute hour day month weekday`
+**Cron format:** `second minute hour day month weekday`
 
-**Note:** The `zone` parameter **only works with cron expressions**. It is ignored for `fixed_rate` and `fixed_delay` tasks, which always use local system time.
+**Common examples:**
+- `0 * * * * *` - Every minute
+- `0 */5 * * * *` - Every 5 minutes
+- `0 0 * * * *` - Every hour
+- `0 0 0 * * *` - Daily at midnight
+- `0 30 9 * * 1-5` - Weekdays at 9:30 AM
 
-**Timezone examples:**
-- `"Asia/Jakarta"` - Jakarta, Indonesia
-- `"UTC"` - Coordinated Universal Time
-- `"America/New_York"` - Eastern Time
-- `"Europe/London"` - British Time
-- `"local"` - System local time (default)
-
-### Fixed Rate
+#### Fixed Rate
 
 Execute at fixed intervals (doesn't wait for completion):
 
 ```rust
-// Default: milliseconds
-#[scheduled(fixed_rate = 30000)]
-async fn every_30_seconds() {
-    // Runs every 30000 milliseconds (30 seconds)
-}
+#[scheduled(fixed_rate = "30s")]
+async fn every_30_seconds() { }
 
-// Using time_unit with string
-#[scheduled(fixed_rate = 30, time_unit = "seconds")]
-async fn every_30_seconds_v2() {
-    // Runs every 30 seconds
-}
-
-// Using time_unit with enum
-use concerto::TimeUnit;
-
-#[scheduled(fixed_rate = 5, time_unit = TimeUnit::Minutes)]
-async fn every_5_minutes() {
-    // Runs every 5 minutes
-}
-
-#[scheduled(fixed_rate = 1, time_unit = TimeUnit::Hours)]
-async fn every_hour() {
-    // Runs every hour
-}
-
-#[scheduled(fixed_rate = 1, time_unit = TimeUnit::Days)]
-async fn daily_task() {
-    // Runs every day
-}
+#[scheduled(fixed_rate = 5, time_unit = "minutes")]
+async fn every_5_minutes() { }
 ```
 
-**Supported time units:**
-- `milliseconds` (default), `ms`, `millis`
-- `seconds`, `s`, `sec`
-- `minutes`, `m`, `min`
-- `hours`, `h`, `hr`
-- `days`, `d`, `day`
+**Supported time units:** `ms`, `s`, `m`, `h`, `d`
 
-### Fixed Delay
+#### Fixed Delay
 
 Execute with fixed delay between completions:
 
 ```rust
-#[scheduled(fixed_delay = 30)]
-async fn fixed_delay_task() {
-    // Waits 30 seconds after completion
-}
+#[scheduled(fixed_delay = "30s")]
+async fn after_30_seconds() { }
 ```
 
-### Initial Delay
+#### Initial Delay
 
 Delay the first execution:
 
 ```rust
-#[scheduled(fixed_rate = 60, initial_delay = 10)]
-async fn delayed_start() {
-    // First execution after 10 seconds, then every 60 seconds
-}
+#[scheduled(fixed_rate = "60s", initial_delay = "10s")]
+async fn delayed_start() { }
 ```
 
-### Conditional Execution
-
-Enable/disable via config or boolean literal:
+#### Conditional Execution
 
 ```rust
-// Using config placeholder
-#[scheduled(fixed_rate = 30, enabled = "${feature.enabled}")]
-async fn conditional_task() {
-    // Only runs if feature.enabled = true in config
-}
-
-// Using boolean literal
-#[scheduled(fixed_rate = 60, enabled = true)]
-async fn always_enabled() {
-    // Always runs
-}
-
-#[scheduled(fixed_rate = 60, enabled = false)]
-async fn always_disabled() {
-    // Never runs (useful for temporarily disabling tasks)
-}
+#[scheduled(fixed_rate = "30s", enabled = "${feature.enabled}")]
+async fn conditional_task() { }
 ```
 
-### Config Placeholders
+### Configuration
 
-Use `${key}` syntax to read from configuration:
-
-```rust
-// With default value
-#[scheduled(cron = "${app.cron:0 * * * * *}")]
-async fn with_default() {
-    // Uses config value or defaults to every minute
-}
-
-// From nested config
-#[scheduled(fixed_rate = "${app.schedule.interval}")]
-async fn nested_config() {
-    // Reads app.schedule.interval from config
-}
-```
-
-## Advanced Usage
-
-### Custom Configuration
-
-```rust
-use concerto::SchedulerBuilder;
-use config::Config;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let custom_config = Config::builder()
-        .add_source(config::File::with_name("my_config"))
-        .build()?;
-
-    // Build with custom config
-    let scheduler = SchedulerBuilder::with_config(custom_config).build();
-    
-    // Start scheduler
-    let handle = scheduler.start().await?;
-
-    tokio::signal::ctrl_c().await?;
-    handle.shutdown().await?;
-    Ok(())
-}
-```
-
-### Using TOML/YAML Config Files
-
-```rust
-use concerto::SchedulerBuilder;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Option 1: TOML config (panics on error - fail fast during setup)
-    let scheduler = SchedulerBuilder::with_toml("config/application.toml")
-        .build();
-    
-    // Option 2: YAML config (panics on error - fail fast during setup)
-    let scheduler = SchedulerBuilder::with_yaml("config/application.yaml")
-        .build();
-    
-    let handle = scheduler.start().await?;
-    tokio::signal::ctrl_c().await?;
-    handle.shutdown().await?;
-    Ok(())
-}
-```
-
-### Scheduler Builder API
-
-```rust
-// All available methods:
-let scheduler = SchedulerBuilder::new()                             // Default config
-    // OR
-    .with_toml("config.toml")                                       // TOML config (no ?)
-    // OR
-    .with_yaml("config.yaml")                                       // YAML config (no ?)
-    // OR
-    .with_config(custom_config)                                     // Custom Config
-    
-    // Register runnable instances (optional, can chain multiple)
-    .register(task1)
-    .register(task2)
-    .register(task3)
-    
-    .build();                                                       // Build (no ?)
-
-// Start the scheduler
-let handle = scheduler.start().await?;                              // Start (can error)
-
-// Graceful shutdown
-handle.shutdown().await?;
-```
-
-## Examples
-
-### Example 1: Basic Scheduling
-
-```rust
-use concerto::scheduled;
-
-#[scheduled(fixed_rate = 10)]
-async fn health_check() {
-    println!("Health check at: {}", chrono::Local::now());
-}
-
-#[scheduled(cron = "0 0 2 * * *")]
-async fn daily_cleanup() {
-    println!("Running daily cleanup...");
-    // Cleanup logic here
-}
-```
-
-### Example 2: Config-Driven Tasks
-
-`config/application.toml`:
+**TOML** (`config/application.toml`):
 ```toml
-[app.jobs]
-health_check_interval = "30"
-backup_cron = "0 0 3 * * *"
-sync_enabled = true
+[app]
+interval = "60"
+enabled = true
+
+[app.schedule]
+cron = "0 0 * * * *"
 ```
 
-`main.rs`:
+**Usage:**
 ```rust
-#[scheduled(fixed_rate = "${app.jobs.health_check_interval}")]
-async fn health_check() {
-    // Runs every 30 seconds from config
-}
-
-#[scheduled(cron = "${app.jobs.backup_cron}")]
-async fn backup() {
-    // Runs at 3 AM daily
-}
-
-#[scheduled(fixed_rate = 60, enabled = "${app.jobs.sync_enabled}")]
-async fn sync_data() {
-    // Only runs if enabled in config
-}
+#[scheduled(fixed_rate = "${app.interval}", enabled = "${app.enabled}")]
+async fn config_task() { }
 ```
 
-### Example 3: Async Operations
+**Environment variables:**
+```bash
+export APP_INTERVAL=120
+export APP_ENABLED=true
+```
+
+### Builder API
 
 ```rust
-#[scheduled(fixed_rate = 60)]
-async fn fetch_external_data() {
-    match reqwest::get("https://api.example.com/data").await {
-        Ok(response) => {
-            println!("Fetched: {:?}", response.text().await);
-        }
-        Err(e) => {
-            eprintln!("Error fetching data: {}", e);
-        }
-    }
-}
+let scheduler = SchedulerBuilder::new()              // Default config
+    // OR with config file
+    .with_toml("config/application.toml")            // TOML
+    .with_yaml("config/application.yaml")            // YAML
+    
+    // Optional: register manual tasks
+    .register(task)
+    
+    .build();                                        // Build
 
-#[scheduled(fixed_delay = 30)]
-async fn process_queue() {
-    // Process items
-    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-    println!("Queue processed");
-    // Next execution will start 30 seconds after this completes
-}
+let handle = scheduler.start().await?;               // Start
+handle.shutdown().await?;                            // Shutdown
 ```
 
-## Compiler Warnings
+### Logging
 
-This library performs compile-time validation and may emit warnings for common misconfigurations. These warnings indicate that your code will compile and run, but some parameters will be ignored.
-
-### Warning Codes
-
-#### **W001: time_unit Parameter Ignored (Suffix Present)**
-
-**Cause:** Both a time suffix (`s`, `m`, `h`, etc.) and `time_unit` parameter are specified.
+Initialize tracing subscriber to see logs:
 
 ```rust
-// ❌ This will emit W001
-#[scheduled(fixed_rate = "5s", time_unit = TimeUnit::Minutes)]
-//                       ^^^ has suffix    ^^^^^^^^^^^^^^^^^^^ will be ignored
-async fn my_task() { }
+tracing_subscriber::fmt()
+    .with_env_filter("info")
+    .init();
 ```
 
-**Why:** The suffix in the value takes precedence over the `time_unit` parameter.
-
-**Fix Options:**
-```rust
-// ✅ Option 1: Remove suffix
-#[scheduled(fixed_rate = "5", time_unit = TimeUnit::Seconds)]
-
-// ✅ Option 2: Remove time_unit (recommended)
-#[scheduled(fixed_rate = "5s")]
-
-// ✅ Option 3: Use config with time_unit
-#[scheduled(fixed_rate = "${app.interval:5}", time_unit = TimeUnit::Seconds)]
+Control log level:
+```bash
+RUST_LOG=debug cargo run
 ```
 
----
-
-#### **W002: time_unit Parameter Ignored (Cron Expression)**
-
-**Cause:** `time_unit` parameter is specified for a cron-based schedule.
-
-```rust
-// ❌ This will emit W002
-#[scheduled(cron = "0 */5 * * * *", time_unit = TimeUnit::Seconds)]
-//                                  ^^^^^^^^^^^^^^^^^^^^^^^^ ignored
-async fn my_task() { }
-```
-
-**Why:** Cron expressions use absolute calendar time, not intervals. The `time_unit` parameter only applies to interval-based schedules (`fixed_rate`, `fixed_delay`).
-
-**Fix:**
-```rust
-// ✅ Remove time_unit
-#[scheduled(cron = "0 */5 * * * *")]
-async fn my_task() { }
-```
-
----
-
-#### **W003: zone Parameter Ignored (Interval-Based Schedule)**
-
-**Cause:** `zone` parameter is specified for `fixed_rate` or `fixed_delay` schedule.
-
-```rust
-// ❌ This will emit W003
-#[scheduled(fixed_rate = "5s", zone = "Asia/Jakarta")]
-//                             ^^^^^^^^^^^^^^^^^^^^^^ ignored
-async fn my_task() { }
-```
-
-**Why:** Interval-based tasks (`fixed_rate`, `fixed_delay`) always use local system time. Timezones only apply to cron expressions which are calendar-based.
-
-**Fix:**
-```rust
-// ✅ Remove zone for intervals
-#[scheduled(fixed_rate = "5s")]
-
-// ✅ Or use cron if you need timezone
-#[scheduled(cron = "0 */5 * * * *", zone = "Asia/Jakarta")]
-```
-
----
-
-### Compile Errors vs Warnings
-
-| Condition | Type | Reason |
-|-----------|------|--------|
-| Parameter ignored (suffix + time_unit) | ⚠️ **Warning W001** | Non-fatal: code works, parameter ignored |
-| time_unit for cron | ⚠️ **Warning W002** | Non-fatal: code works, parameter not applicable |
-| zone for interval | ⚠️ **Warning W003** | Non-fatal: code works, parameter not applicable |
-| Malformed config placeholder (`"${xxx"`) | ❌ **Compile Error** | Fatal: will crash at runtime |
-| Config + suffix mix (`"${app.val}s"`) | ❌ **Compile Error** | Fatal: ambiguous behavior |
-| Invalid time suffix (`"5S"` uppercase) | ❌ **Compile Error** | Fatal: invalid format |
-| Negative or zero interval | ❌ **Compile Error** | Fatal: would cause infinite loop |
-| time_unit as config placeholder | ❌ **Compile Error** | Fatal: must be compile-time constant |
-
----
-
-## Cron Expression Format
-
-```
- ┌─────────── second (0 - 59)
- │ ┌───────── minute (0 - 59)
- │ │ ┌─────── hour (0 - 23)
- │ │ │ ┌───── day of month (1 - 31)
- │ │ │ │ ┌─── month (1 - 12)
- │ │ │ │ │ ┌─ day of week (0 - 6) (Sunday to Saturday)
- │ │ │ │ │ │
- * * * * * *
-```
-
-### Common Cron Examples
-
-- `0 * * * * *` - Every minute
-- `0 */5 * * * *` - Every 5 minutes
-- `0 0 * * * *` - Every hour
-- `0 0 */6 * * *` - Every 6 hours
-- `0 0 0 * * *` - Daily at midnight
-- `0 0 2 * * *` - Daily at 2 AM
-- `0 0 0 * * 1` - Every Monday at midnight
-- `0 0 0 1 * *` - First day of every month
-- `0 30 9 * * 1-5` - Weekdays at 9:30 AM
+**Log levels:**
+- `INFO` - Scheduler lifecycle, task registration
+- `DEBUG` - Task configuration details
+- `WARN` - Configuration warnings
+- `ERROR` - Registration failures
 
 ## Project Structure
 
@@ -840,29 +479,57 @@ async fn collect_metrics() {
 }
 ```
 
+## �️ Architecture
+
+```
+concerto/
+├── concerto/              # Main library (public API)
+├── concerto-macro/        # Procedural macro (#[scheduled])
+├── concerto-runtime/      # Runtime & scheduler implementation
+└── examples/              # Example applications
+```
+
+## 🔄 Comparison with Spring Boot
+
+| Spring Boot | Concerto |
+|-------------|----------|
+| `@Scheduled(cron = "...")` | `#[scheduled(cron = "...")]` |
+| `@Scheduled(fixedRate = 1000)` | `#[scheduled(fixed_rate = "1s")]` |
+| `@Scheduled(fixedDelay = 1000)` | `#[scheduled(fixed_delay = "1s")]` |
+| `@Scheduled(initialDelay = 5000)` | `#[scheduled(initial_delay = "5s")]` |
+| `${property.name}` | `${property.name}` |
+| `application.properties` | `application.toml` |
+
 ## 🎵 Why "Concerto"?
 
-**Concerto** is named after the musical form where multiple instruments play together in perfect harmony and timing. Just like a conductor ensures every instrument enters at precisely the right moment, Concerto orchestrates your scheduled tasks to execute at exactly the right time.
+In a musical concerto, multiple instruments play together in perfect harmony and timing. Similarly, **Concerto** orchestrates your scheduled tasks to execute at precisely the right moment.
 
-The name reflects our philosophy:
-- **Precision Timing** 🎯 - Like musical notes, tasks execute at the perfect moment
+The name reflects:
+- **Precision Timing** 🎯 - Tasks execute at the perfect moment
 - **Harmony** 🎶 - Multiple tasks work together seamlessly
-- **Orchestration** 🎻 - Centralized control over task scheduling
-- **Elegance** ✨ - Simple, beautiful API inspired by Spring Boot
+- **Orchestration** 🎻 - Centralized control over scheduling
+- **Elegance** ✨ - Clean, declarative API
 
-From Spring Boot's `@Scheduled` to Rust's Concerto - bringing enterprise-grade task scheduling to the Rust ecosystem.
+## 🛣️ Roadmap
 
-## 📄 License
-
-This project is licensed under MIT OR Apache-2.0
+- [x] Cron expressions with timezone support
+- [x] Fixed rate and fixed delay scheduling
+- [x] Configuration file integration (TOML/YAML)
+- [x] Conditional task execution
+- [x] Compile-time validation
+- [x] Structured logging with tracing
+- [ ] Task metrics and monitoring
+- [ ] Dynamic task registration at runtime
+- [ ] Task priority support
+- [ ] Concurrent execution limits
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## Support
+## 📄 License
 
-For issues, questions, or contributions, please visit the GitHub repository.
+This project is dual-licensed under MIT OR Apache-2.0. See [LICENSE.md](LICENSE.md) for details.
 
 ---
 

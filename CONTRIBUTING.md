@@ -1,245 +1,201 @@
-# Contributing to scheduled-rs
+# Contributing to Concerto
 
-Thank you for your interest in contributing! This document provides guidelines for contributing to the project.
+Thank you for your interest in contributing to Concerto! This guide will help you get started.
 
-## Getting Started
+## 🚀 Quick Start
 
-1. **Fork the repository**
-2. **Clone your fork**
+1. **Fork and clone the repository**
    ```bash
-   git clone https://github.com/yourusername/scheduled-rs.git
-   cd scheduled-rs
+   git clone https://github.com/yourusername/concerto.git
+   cd concerto
    ```
-3. **Create a branch**
+
+2. **Create a feature branch**
    ```bash
    git checkout -b feature/your-feature-name
    ```
 
-## Development Setup
+3. **Make your changes and test**
+   ```bash
+   cargo test --all
+   cargo fmt
+   cargo clippy
+   ```
+
+4. **Commit and push**
+   ```bash
+   git add .
+   git commit -m "feat: your feature description"
+   git push origin feature/your-feature-name
+   ```
+
+5. **Create a Pull Request**
+
+## 🏗️ Development Setup
 
 ### Prerequisites
-
 - Rust 1.70 or later
 - Cargo
 
 ### Building
-
 ```bash
-# Build all crates
+# Build all workspace members
 cargo build --all
 
 # Run tests
 cargo test --all
 
 # Run examples
-cargo run --example main
+cargo run --example basic
+cargo run --example method-scheduled
 ```
 
-### Development Tools
-
-Install helpful development tools:
-
+### Code Quality
 ```bash
-make dev-deps
+# Format code
+cargo fmt --all
+
+# Lint code
+cargo clippy --all -- -D warnings
+
+# View expanded macros
+cd concerto && cargo expand
 ```
 
-This installs:
-- `cargo-watch` - Auto-rebuild on file changes
-- `cargo-expand` - View expanded macros
+## 📝 Commit Convention
 
-## Code Style
+Use conventional commit format:
+- `feat:` - New feature
+- `fix:` - Bug fix
+- `docs:` - Documentation changes
+- `refactor:` - Code refactoring
+- `test:` - Test additions/changes
+- `chore:` - Maintenance tasks
 
-### Formatting
-
-Run `cargo fmt` before committing:
-
-```bash
-make fmt
+Examples:
+```
+feat: add support for custom time zones
+fix: resolve config placeholder parsing issue
+docs: update README with new examples
+refactor: simplify scheduler registration logic
 ```
 
-### Linting
-
-Run `clippy` to catch common mistakes:
-
-```bash
-make clippy
-```
-
-### All Checks
-
-Run all checks at once:
-
-```bash
-make check-all
-```
-
-## Testing
+## 🧪 Testing
 
 ### Unit Tests
-
-Add tests for new features:
-
 ```rust
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_something() {
+    fn test_feature() {
         // Your test
     }
 }
 ```
 
 ### Integration Tests
-
-Add integration tests in `scheduled/tests/`:
-
+Place integration tests in `tests/` directory:
 ```rust
 #[tokio::test]
-async fn test_scheduled_task() {
-    // Test scheduled tasks
+async fn test_scheduler_lifecycle() {
+    // Test scheduler
 }
 ```
 
-## Project Structure
-
-```
-scheduled-rs/
-├── scheduled/           # Main library (public API)
-├── scheduled-macro/     # Procedural macros
-├── scheduled-runtime/   # Runtime and scheduler logic
-├── examples/           # Example applications
-└── tests/             # Integration tests
-```
-
-## Pull Request Process
-
-1. **Update documentation** - If you add features, update README.md and doc comments
-2. **Add tests** - Ensure your changes are tested
-3. **Run checks** - `make check-all` should pass
-4. **Update CHANGELOG** - Add a note about your changes
-5. **Create PR** - With clear description of changes
-
-### PR Title Format
-
-Use conventional commit format:
-
-- `feat: Add new feature`
-- `fix: Fix bug in scheduler`
-- `docs: Update README`
-- `refactor: Improve code structure`
-- `test: Add tests for X`
-- `chore: Update dependencies`
-
-## Feature Requests
-
-Open an issue with:
-- Clear description of the feature
-- Use cases / motivation
-- Example API (if applicable)
-
-## Bug Reports
-
-Include:
-- Rust version
-- Operating system
-- Minimal reproduction example
-- Expected vs actual behavior
-- Error messages / stack traces
-
-## Code Review
-
-All submissions require review. We use GitHub pull requests for this purpose.
-
-## Areas for Contribution
-
-- 📚 **Documentation** - Improve docs, add examples
-- 🐛 **Bug Fixes** - Fix reported issues
-- ✨ **Features** - Implement new scheduling features
-- 🧪 **Tests** - Improve test coverage
-- 🎨 **Examples** - Add real-world examples
-- 🌍 **Localization** - Translate documentation
-
-## Development Guidelines
-
-### Adding a New Feature
-
-1. Discuss in an issue first
-2. Update macro if needed (`scheduled-macro`)
-3. Update runtime if needed (`scheduled-runtime`)
-4. Update public API (`scheduled`)
-5. Add tests
-6. Add examples
-7. Update documentation
-
-### Macro Development
-
-When modifying `scheduled-macro/src/lib.rs`:
-
-```bash
-# View expanded macros
-cd scheduled && cargo expand
-```
-
-### Runtime Development
-
-When modifying `scheduled-runtime/src/lib.rs`, ensure:
-- Backward compatibility
-- Error handling
-- Documentation
-
-## Documentation
+## 📚 Documentation
 
 ### Doc Comments
-
-Use doc comments for public API:
-
+Use doc comments for public APIs:
 ```rust
-/// Brief description
+/// Brief description of the function
 ///
 /// # Examples
 ///
 /// ```rust
-/// #[scheduled(fixed_rate = 30)]
+/// #[scheduled(fixed_rate = "30s")]
 /// async fn my_task() {
-///     // ...
+///     println!("Task running");
 /// }
 /// ```
 ///
 /// # Errors
 ///
 /// Returns error if...
-pub fn my_function() {
-    // ...
-}
+pub fn my_function() {}
 ```
 
 ### README Updates
-
 Update README.md when:
 - Adding features
-- Changing API
-- Adding examples
+- Changing public API
+- Adding examples or use cases
 
-## Release Process
+## 🎯 Areas for Contribution
 
-(For maintainers)
+- 📚 **Documentation** - Improve docs, add examples
+- 🐛 **Bug Fixes** - Fix reported issues
+- ✨ **Features** - Implement new scheduling features
+- 🧪 **Tests** - Improve test coverage
+- 🎨 **Examples** - Add real-world examples
+- 🔍 **Code Review** - Review pull requests
 
-1. Update version in all `Cargo.toml` files
-2. Update CHANGELOG.md
-3. Create git tag
-4. Publish to crates.io:
-   ```bash
-   cd scheduled-macro && cargo publish
-   cd ../scheduled-runtime && cargo publish
-   cd ../scheduled && cargo publish
-   ```
+## 🔧 Project Structure
 
-## Questions?
+```
+concerto/
+├── concerto/              # Main library (public API)
+├── concerto-macro/        # Procedural macros
+├── concerto-runtime/      # Runtime and scheduler logic
+├── examples/              # Example applications
+└── tests/                # Integration tests
+```
 
-Feel free to open an issue for questions or join our discussions!
+## 📋 Pull Request Process
 
-## License
+1. **Update documentation** - Add/update docs for new features
+2. **Add tests** - Ensure changes are tested
+3. **Run checks** - All checks must pass
+4. **Update CHANGELOG** - Add entry in Unreleased section
+5. **Clear description** - Explain what and why
+
+### PR Checklist
+- [ ] Code builds without errors
+- [ ] All tests pass
+- [ ] Code is formatted (`cargo fmt`)
+- [ ] No clippy warnings
+- [ ] Documentation updated
+- [ ] CHANGELOG updated
+- [ ] Examples added/updated if needed
+
+## 🐛 Bug Reports
+
+Include:
+- Rust version
+- Operating system
+- Minimal reproduction example
+- Expected vs actual behavior
+- Error messages/stack traces
+
+## 💡 Feature Requests
+
+Open an issue with:
+- Clear description
+- Use cases / motivation
+- Proposed API (if applicable)
+- Example code
+
+## 📜 License
 
 By contributing, you agree that your contributions will be licensed under MIT OR Apache-2.0.
+
+## ❓ Questions?
+
+Feel free to open an issue for questions or start a discussion!
+
+---
+
+Thank you for contributing to Concerto! 🎵
+
+Thank you for contributing to Concerto! �
