@@ -1,6 +1,4 @@
 use scheduled::{scheduled, Runnable, SchedulerBuilder};
-use std::pin::Pin;
-use std::future::Future;
 
 /// Example task struct
 struct UserTask {
@@ -20,11 +18,9 @@ impl UserTask {
 /// Implement Runnable with scheduling configuration
 #[scheduled(cron = "0 */5 * * * *")]
 impl Runnable for UserTask {
-    fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        Box::pin(async move {
-            let count = self.counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            println!("[UserTask] Running task '{}' - execution #{}", self.name, count + 1);
-        })
+    fn run(&self) {
+        let count = self.counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        println!("[UserTask] Running task '{}' - execution #{}", self.name, count + 1);
     }
 }
 
@@ -43,12 +39,10 @@ impl DatabaseCleanupTask {
 
 #[scheduled(fixed_rate = "10s")]
 impl Runnable for DatabaseCleanupTask {
-    fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        Box::pin(async move {
-            println!("[DatabaseCleanupTask] Cleaning database: {}", self.db_name);
-            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-            println!("[DatabaseCleanupTask] Cleanup completed for: {}", self.db_name);
-        })
+    fn run(&self) {
+        println!("[DatabaseCleanupTask] Cleaning database: {}", self.db_name);
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        println!("[DatabaseCleanupTask] Cleanup completed for: {}", self.db_name);
     }
 }
 
@@ -67,12 +61,10 @@ impl ReportGeneratorTask {
 
 #[scheduled(fixed_delay = "15s")]
 impl Runnable for ReportGeneratorTask {
-    fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        Box::pin(async move {
-            println!("[ReportGeneratorTask] Generating {} report...", self.report_type);
-            tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-            println!("[ReportGeneratorTask] Report generation completed!");
-        })
+    fn run(&self) {
+        println!("[ReportGeneratorTask] Generating {} report...", self.report_type);
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        println!("[ReportGeneratorTask] Report generation completed!");
     }
 }
 

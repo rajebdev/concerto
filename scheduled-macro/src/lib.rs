@@ -573,8 +573,11 @@ fn handle_scheduled_impl(args: TokenStream, input_impl: ItemImpl) -> TokenStream
             }
 
             fn call_scheduled_method(&self, _method_name: &str) -> ::std::pin::Pin<::std::boxed::Box<dyn ::std::future::Future<Output = ()> + Send + '_>> {
-                // Call the run() method from Runnable trait
-                <Self as ::scheduled::scheduled_runtime::Runnable>::run(self)
+                // Call the run() method from Runnable trait (now synchronous)
+                // Wrap it in a future for compatibility with the scheduler
+                ::std::boxed::Box::pin(async move {
+                    <Self as ::scheduled::scheduled_runtime::Runnable>::run(self);
+                })
             }
         }
     };

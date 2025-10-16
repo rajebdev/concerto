@@ -1,6 +1,3 @@
-use std::future::Future;
-use std::pin::Pin;
-
 /// Trait for schedulable tasks
 /// 
 /// Implement this trait on your struct to make it schedulable.
@@ -10,8 +7,6 @@ use std::pin::Pin;
 /// 
 /// ```rust
 /// use scheduled_runtime::Runnable;
-/// use std::pin::Pin;
-/// use std::future::Future;
 /// 
 /// struct MyTask {
 ///     name: String,
@@ -19,10 +14,8 @@ use std::pin::Pin;
 /// 
 /// // Note: #[scheduled] macro would be used in actual code
 /// impl Runnable for MyTask {
-///     fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-///         Box::pin(async move {
-///             println!("Task {} is running", self.name);
-///         })
+///     fn run(&self) {
+///         println!("Task {} is running", self.name);
 ///     }
 /// }
 /// 
@@ -33,5 +26,5 @@ use std::pin::Pin;
 /// ```
 pub trait Runnable: Send + Sync {
     /// Execute the scheduled task
-    fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>>;
+    fn run(&self);
 }

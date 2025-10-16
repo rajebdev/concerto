@@ -74,10 +74,8 @@ struct MyTask {
 // Macro provides metadata (schedule info)
 #[scheduled(fixed_rate = "5s")]
 impl Runnable for MyTask {
-    fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        Box::pin(async move {
-            println!("Task {} is running!", self.name);
-        })
+    fn run(&self) {
+        println!("Task {} is running!", self.name);
     }
 }
 
@@ -111,10 +109,8 @@ async fn background_task() {
 // Manual struct
 #[scheduled(fixed_rate = "5s")]
 impl Runnable for MyTask {
-    fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        Box::pin(async move {
-            println!("Manual task");
-        })
+    fn run(&self) {
+        println!("Manual task");
     }
 }
 

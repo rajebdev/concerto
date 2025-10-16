@@ -107,8 +107,6 @@ impl SchedulerBuilder {
     ///
     /// ```rust
     /// use scheduled_runtime::{SchedulerBuilder, Runnable};
-    /// use std::pin::Pin;
-    /// use std::future::Future;
     /// 
     /// struct MyTask {
     ///     name: String,
@@ -122,10 +120,8 @@ impl SchedulerBuilder {
     /// 
     /// // Note: In actual code, use #[scheduled(fixed_rate = "5s")] on impl block
     /// impl Runnable for MyTask {
-    ///     fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-    ///         Box::pin(async move {
-    ///             println!("Running task");
-    ///         })
+    ///     fn run(&self) {
+    ///         println!("Running task");
     ///     }
     /// }
     /// 

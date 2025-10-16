@@ -1,6 +1,4 @@
 use scheduled::{scheduled, Runnable, SchedulerBuilder};
-use std::pin::Pin;
-use std::future::Future;
 use tokio::time::{sleep, Duration};
 
 // ============================================
@@ -50,12 +48,10 @@ impl DatabaseBackup {
 
 #[scheduled(fixed_rate = "15s")]
 impl Runnable for DatabaseBackup {
-    fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        Box::pin(async move {
-            println!("💾 [DatabaseBackup] Backing up database: {}", self.db_name);
-            sleep(Duration::from_millis(500)).await;
-            println!("✅ [DatabaseBackup] Backup completed for: {}", self.db_name);
-        })
+    fn run(&self) {
+        println!("💾 [DatabaseBackup] Backing up database: {}", self.db_name);
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        println!("✅ [DatabaseBackup] Backup completed for: {}", self.db_name);
     }
 }
 
@@ -71,12 +67,10 @@ impl EmailSender {
 
 #[scheduled(fixed_delay = "20s")]
 impl Runnable for EmailSender {
-    fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        Box::pin(async move {
-            println!("📧 [EmailSender] Processing {} emails...", self.queue_size);
-            sleep(Duration::from_millis(300)).await;
-            println!("✅ [EmailSender] Emails sent!");
-        })
+    fn run(&self) {
+        println!("📧 [EmailSender] Processing {} emails...", self.queue_size);
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        println!("✅ [EmailSender] Emails sent!");
     }
 }
 

@@ -241,7 +241,9 @@ impl Scheduler {
                 let job = Job::new_async(cron_expr.as_str(), move |_uuid, _lock| {
                     let instance = instance.clone();
                     Box::pin(async move {
-                        instance.run().await;
+                        tokio::task::spawn_blocking(move || {
+                            instance.run();
+                        }).await.ok();
                     })
                 })?;
 
@@ -280,13 +282,18 @@ impl Scheduler {
 
                     loop {
                         if is_fixed_delay {
-                            instance.run().await;
+                            let instance_clone = instance.clone();
+                            tokio::task::spawn_blocking(move || {
+                                instance_clone.run();
+                            }).await.ok();
                             interval.tick().await;
                         } else {
                             interval.tick().await;
                             let instance_clone = instance.clone();
                             tokio::spawn(async move {
-                                instance_clone.run().await;
+                                tokio::task::spawn_blocking(move || {
+                                    instance_clone.run();
+                                }).await.ok();
                             });
                         }
                     }
