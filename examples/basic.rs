@@ -1,5 +1,6 @@
 use scheduled::{scheduled, SchedulerBuilder};
 use std::sync::atomic::{AtomicU32, Ordering};
+use chrono::Local;
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -7,13 +8,15 @@ static COUNTER: AtomicU32 = AtomicU32::new(0);
 #[scheduled(fixed_rate = 500)]
 async fn fast_ms_task() {
     let count = COUNTER.fetch_add(1, Ordering::SeqCst) + 1;
-    println!("[FAST-MS] Execution #{} (every 500ms)", count);
+    let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+    println!("[{}] [FAST-MS] Execution #{} (every 500ms)", now, count);
 }
 
 /// Runs every 2 seconds
 #[scheduled(fixed_rate = "2s")]
 async fn slow_seconds_task() {
-    println!("[SLOW-SEC] Every 2 seconds");
+    let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+    println!("[{}] [SLOW-SEC] Every 2 seconds", now);
 }
 
 #[tokio::main]

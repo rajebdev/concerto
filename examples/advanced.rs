@@ -1,27 +1,32 @@
 use scheduled::{scheduled, SchedulerBuilder};
+use chrono::Local;
 
 /// Task with cron expression - runs every minute
 #[scheduled(cron = " * * * * *")]
 async fn cron_task() {
-    println!("[CRON] Every minute task");
+    let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+    println!("[{}] [CRON] Every minute task", now);
 }
 
 /// Task with fixed rate from config (using shorthand)
 #[scheduled(fixed_rate = "${app.interval:10s}")]
 async fn config_task() {
-    println!("[CONFIG] Task with interval from config");
+    let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+    println!("[{}] [CONFIG] Task with interval from config", now);
 }
 
 /// Task with initial delay (using shorthand "5s")
 #[scheduled(fixed_rate = "5s", initial_delay = 3)]
 async fn delayed_task() {
-    println!("[DELAYED] Task with 3s initial delay, runs every 5s");
+    let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+    println!("[{}] [DELAYED] Task with 3s initial delay, runs every 5s", now);
 }
 
 /// Conditional task (can be disabled via config)
 #[scheduled(fixed_rate = "7s", enabled = "${app.task_enabled:true}")]
 async fn conditional_task() {
-    println!("[CONDITIONAL] This task can be enabled/disabled");
+    let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+    println!("[{}] [CONDITIONAL] This task can be enabled/disabled", now);
 }
 
 #[tokio::main]

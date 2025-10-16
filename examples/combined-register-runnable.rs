@@ -1,5 +1,6 @@
 use scheduled::{scheduled, Runnable, SchedulerBuilder};
 use tokio::time::{sleep, Duration};
+use chrono::Local;
 
 // ============================================
 // PART 1: Method-based scheduling with #[scheduled]
@@ -20,13 +21,15 @@ impl UserService {
     /// Runs every 5 seconds
     #[scheduled(fixed_rate = "5s")]
     async fn sync_users(&self) {
-        println!("🔄 [UserService::{}] Syncing users...", self.name);
+        let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+        println!("[{}] 🔄 [UserService::{}] Syncing users...", now, self.name);
     }
 
     /// Runs every 10 seconds
     #[scheduled(fixed_rate = "10s")]
     async fn cleanup_cache(&self) {
-        println!("🧹 [UserService::{}] Cleaning cache...", self.name);
+        let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+        println!("[{}] 🧹 [UserService::{}] Cleaning cache...", now, self.name);
     }
 }
 
@@ -49,9 +52,10 @@ impl DatabaseBackup {
 #[scheduled(fixed_rate = "15s")]
 impl Runnable for DatabaseBackup {
     fn run(&self) {
-        println!("💾 [DatabaseBackup] Backing up database: {}", self.db_name);
+        let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+        println!("[{}] 💾 [DatabaseBackup] Backing up database: {}", now, self.db_name);
         std::thread::sleep(std::time::Duration::from_millis(500));
-        println!("✅ [DatabaseBackup] Backup completed for: {}", self.db_name);
+        println!("[{}] ✅ [DatabaseBackup] Backup completed for: {}", Local::now().format("%Y-%m-%d %H:%M:%S%.3f"), self.db_name);
     }
 }
 
@@ -68,9 +72,10 @@ impl EmailSender {
 #[scheduled(fixed_delay = "20s")]
 impl Runnable for EmailSender {
     fn run(&self) {
-        println!("📧 [EmailSender] Processing {} emails...", self.queue_size);
+        let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+        println!("[{}] 📧 [EmailSender] Processing {} emails...", now, self.queue_size);
         std::thread::sleep(std::time::Duration::from_millis(300));
-        println!("✅ [EmailSender] Emails sent!");
+        println!("[{}] ✅ [EmailSender] Emails sent!", Local::now().format("%Y-%m-%d %H:%M:%S%.3f"));
     }
 }
 

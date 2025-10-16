@@ -1,6 +1,7 @@
 use scheduled::{scheduled, SchedulerBuilder};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
+use chrono::Local;
 
 static COUNTER_10MS: AtomicU32 = AtomicU32::new(0);
 static COUNTER_100MS: AtomicU32 = AtomicU32::new(0);
@@ -11,8 +12,9 @@ static START_TIME: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
 async fn super_fast_10ms() {
     let count = COUNTER_10MS.fetch_add(1, Ordering::SeqCst) + 1;
     let elapsed = START_TIME.get().unwrap().elapsed().as_millis();
+    let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
     if count.is_multiple_of(10) || count <= 5 {  // Print every 10th to avoid spam
-        println!("[{}ms] 10ms task #{}", elapsed, count);
+        println!("[{}] [{}ms] 10ms task #{}", now, elapsed, count);
     }
 }
 
@@ -21,7 +23,8 @@ async fn super_fast_10ms() {
 async fn fast_100ms() {
     let count = COUNTER_100MS.fetch_add(1, Ordering::SeqCst) + 1;
     let elapsed = START_TIME.get().unwrap().elapsed().as_millis();
-    println!("[{}ms] 100ms task #{}", elapsed, count);
+    let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+    println!("[{}] [{}ms] 100ms task #{}", now, elapsed, count);
 }
 
 #[tokio::main]

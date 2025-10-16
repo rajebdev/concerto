@@ -2,6 +2,7 @@
 /// This demonstrates how to mark methods with #[scheduled]
 /// and the scheduler will auto-discover them when you register the instance.
 use scheduled::{scheduled, SchedulerBuilder};
+use chrono::Local;
 
 /// User handler with multiple scheduled methods
 struct UserHandler {
@@ -22,21 +23,24 @@ impl UserHandler {
     #[scheduled(fixed_rate = "5s")]
     async fn exe(&self) {
         let count = self.counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        println!("[{}::exe] Execution #{} - Running every 5 seconds", self.name, count + 1);
+        let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+        println!("[{}] [{}::exe] Execution #{} - Running every 5 seconds", now, self.name, count + 1);
     }
 
     /// This method will run every 10 seconds
     #[scheduled(fixed_rate = "10s")]
     async fn exe2(&self) {
-        println!("[{}::exe2] Running every 10 seconds", self.name);
+        let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+        println!("[{}] [{}::exe2] Running every 10 seconds", now, self.name);
     }
 
     /// This method will run with fixed delay of 8 seconds after previous completion
     #[scheduled(fixed_delay = "8s")]
     async fn cleanup(&self) {
-        println!("[{}::cleanup] Starting cleanup...", self.name);
+        let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+        println!("[{}] [{}::cleanup] Starting cleanup...", now, self.name);
         tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-        println!("[{}::cleanup] Cleanup completed!", self.name);
+        println!("[{}] [{}::cleanup] Cleanup completed!", Local::now().format("%Y-%m-%d %H:%M:%S%.3f"), self.name);
     }
 
     /// Regular method without #[scheduled] - won't be auto-executed
