@@ -28,10 +28,12 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-concerto = "0.1"
+concerto = { git = "https://github.com/rajebdev/concerto.git", tag = "v0.1.0" }
 tokio = { version = "1", features = ["full"] }
 tracing-subscriber = "0.3"  # For logging
 ```
+
+> **Note:** Concerto is not yet published to crates.io. Install directly from GitHub using the method above.
 
 ## 🚀 Quick Start
 
