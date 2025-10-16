@@ -1,9 +1,9 @@
-use scheduled::{scheduled, SchedulerBuilder};
+use concerto::{scheduled, SchedulerBuilder};
 use chrono::Local;
 use tracing_subscriber;
 
 /// Task with cron expression - runs every minute
-#[scheduled(cron = " * * * * *")]
+#[scheduled(cron = "* * * * * *")]
 async fn cron_task() {
     let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
     println!("[{}] [CRON] Every minute task", now);
@@ -60,3 +60,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n👋 Shutting down...");
     Ok(())
 }
+

@@ -1,7 +1,7 @@
 /// Example: Using #[scheduled] on methods within impl block
 /// This demonstrates how to mark methods with #[scheduled]
 /// and the scheduler will auto-discover them when you register the instance.
-use scheduled::{scheduled, SchedulerBuilder};
+use concerto::{scheduled, SchedulerBuilder};
 use chrono::Local;
 
 /// User handler with multiple scheduled methods
@@ -80,3 +80,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+

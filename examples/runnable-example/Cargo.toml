@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-scheduled = { path = "../../scheduled" }
+concerto = { path = "../../concerto" }
 tokio = { version = "1", features = ["full"] }
 chrono = "0.4"
 

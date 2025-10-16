@@ -379,7 +379,7 @@ fn handle_scheduled_function(args: TokenStream, input_fn: ItemFn) -> TokenStream
         );
         quote::quote! {
             #[allow(dead_code, non_upper_case_globals)]
-            const #dummy_name: fn() -> ::scheduled::TimeUnit = || #path;
+            const #dummy_name: fn() -> ::concerto::TimeUnit = || #path;
         }
     } else {
         quote::quote! {}
@@ -393,10 +393,10 @@ fn handle_scheduled_function(args: TokenStream, input_fn: ItemFn) -> TokenStream
         #force_import
 
         // Auto-registration using linkme
-        #[::scheduled::scheduled_runtime::linkme::distributed_slice(::scheduled::scheduled_runtime::SCHEDULED_TASKS)]
-        #[linkme(crate = ::scheduled::scheduled_runtime::linkme)]
-        fn #register_fn_name() -> ::scheduled::scheduled_runtime::ScheduledTask {
-            ::scheduled::scheduled_runtime::ScheduledTask::builder(
+        #[::concerto::concerto_runtime::linkme::distributed_slice(::concerto::concerto_runtime::SCHEDULED_TASKS)]
+        #[linkme(crate = ::concerto::concerto_runtime::linkme)]
+        fn #register_fn_name() -> ::concerto::concerto_runtime::ScheduledTask {
+            ::concerto::concerto_runtime::ScheduledTask::builder(
                 stringify!(#fn_name),
                 || {
                     ::tokio::spawn(async {
@@ -511,13 +511,13 @@ fn handle_scheduled_impl(args: TokenStream, input_impl: ItemImpl) -> TokenStream
     // Generate time_unit_enum() implementation if TimeUnit was explicitly specified
     let time_unit_enum_impl = if let Some(ref path) = time_unit_path {
         quote::quote! {
-            fn time_unit_enum() -> Option<::scheduled::TimeUnit> {
+            fn time_unit_enum() -> Option<::concerto::TimeUnit> {
                 Some(#path)
             }
             
             // Force TimeUnit import to be used (prevents unused import warning)
             #[allow(dead_code)]
-            const __FORCE_TIME_UNIT_IMPORT: fn() -> ::scheduled::TimeUnit = || #path;
+            const __FORCE_TIME_UNIT_IMPORT: fn() -> ::concerto::TimeUnit = || #path;
         }
     } else {
         quote::quote! {}
@@ -543,7 +543,7 @@ fn handle_scheduled_impl(args: TokenStream, input_impl: ItemImpl) -> TokenStream
         }
 
         // Implementation of ScheduledMetadata trait to store schedule configuration
-        impl ::scheduled::scheduled_runtime::ScheduledMetadata for #impl_type {
+        impl ::concerto::concerto_runtime::ScheduledMetadata for #impl_type {
             fn schedule_type() -> &'static str { #schedule_type }
             fn schedule_value() -> &'static str { #schedule_value }
             fn initial_delay() -> &'static str { #initial_delay_str }
@@ -556,11 +556,11 @@ fn handle_scheduled_impl(args: TokenStream, input_impl: ItemImpl) -> TokenStream
 
         // BONUS: Also implement ScheduledInstance for Runnable types
         // This allows using .register() for both method-based and Runnable-based tasks!
-        impl ::scheduled::scheduled_runtime::ScheduledInstance for #impl_type {
-            fn scheduled_methods() -> ::std::vec::Vec<::scheduled::scheduled_runtime::ScheduledMethodMetadata> {
+        impl ::concerto::concerto_runtime::ScheduledInstance for #impl_type {
+            fn scheduled_methods() -> ::std::vec::Vec<::concerto::concerto_runtime::ScheduledMethodMetadata> {
                 // Runnable types have no methods, but we create a single "run" method entry
                 vec![
-                    ::scheduled::scheduled_runtime::ScheduledMethodMetadata {
+                    ::concerto::concerto_runtime::ScheduledMethodMetadata {
                         method_name: "run",
                         schedule_type: #schedule_type,
                         schedule_value: #schedule_value,
@@ -576,7 +576,7 @@ fn handle_scheduled_impl(args: TokenStream, input_impl: ItemImpl) -> TokenStream
                 // Call the run() method from Runnable trait (now synchronous)
                 // Wrap it in a future for compatibility with the scheduler
                 ::std::boxed::Box::pin(async move {
-                    <Self as ::scheduled::scheduled_runtime::Runnable>::run(self);
+                    <Self as ::concerto::concerto_runtime::Runnable>::run(self);
                 })
             }
         }
@@ -635,7 +635,7 @@ fn handle_impl_with_scheduled_methods(_args: TokenStream, mut input_impl: ItemIm
                 let zone_str = parsed_attrs.zone;
 
                 scheduled_methods.push(quote! {
-                    ::scheduled::scheduled_runtime::ScheduledMethodMetadata {
+                    ::concerto::concerto_runtime::ScheduledMethodMetadata {
                         method_name: stringify!(#method_name),
                         schedule_type: #schedule_type,
                         schedule_value: #schedule_value,
@@ -656,8 +656,8 @@ fn handle_impl_with_scheduled_methods(_args: TokenStream, mut input_impl: ItemIm
     let expanded = quote! {
         #input_impl
 
-        impl ::scheduled::scheduled_runtime::ScheduledInstance for #impl_type {
-            fn scheduled_methods() -> ::std::vec::Vec<::scheduled::scheduled_runtime::ScheduledMethodMetadata> {
+        impl ::concerto::concerto_runtime::ScheduledInstance for #impl_type {
+            fn scheduled_methods() -> ::std::vec::Vec<::concerto::concerto_runtime::ScheduledMethodMetadata> {
                 vec![
                     #(#scheduled_methods),*
                 ]
@@ -977,3 +977,4 @@ fn parse_schedule_args(
         time_unit_path,
     })
 }
+

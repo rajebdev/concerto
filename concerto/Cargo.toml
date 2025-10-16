@@ -1,17 +1,17 @@
 [package]
-name = "scheduled"
+name = "concerto"
 version = "0.1.0"
 edition = "2021"
 authors = ["Your Name <your.email@example.com>"]
 license = "MIT OR Apache-2.0"
-description = "Spring Boot-like task scheduling for Rust with config support"
-repository = "https://github.com/yourusername/scheduled-rs"
-keywords = ["scheduler", "cron", "task", "scheduled", "spring"]
+description = "Orchestrate your scheduled tasks with precision timing - Spring Boot-like scheduling for Rust"
+repository = "https://github.com/rajebdev/concerto-rs"
+keywords = ["scheduler", "cron", "task", "scheduled", "concerto"]
 categories = ["asynchronous", "concurrency"]
 
 [dependencies]
-scheduled-macro = { path = "../scheduled-macro", version = "0.1.0" }
-scheduled-runtime = { path = "../scheduled-runtime", version = "0.1.0" }
+concerto-macro = { path = "../concerto-macro", version = "0.1.0" }
+concerto-runtime = { path = "../concerto-runtime", version = "0.1.0" }
 tokio-cron-scheduler = { workspace = true }
 tokio = { workspace = true }
 

@@ -1,4 +1,4 @@
-use scheduled::{scheduled, SchedulerBuilder};
+use concerto::{scheduled, SchedulerBuilder};
 use chrono::Local;
 
 /// Task with interval from YAML config file (using shorthand with suffix)
@@ -16,7 +16,7 @@ async fn yaml_cron_task() {
 }
 
 /// Task using minutes from nested config (using TimeUnit constant)
-#[scheduled(fixed_rate = "${app.report.interval}", time_unit = scheduled::TimeUnit::Minutes)]
+#[scheduled(fixed_rate = "${app.report.interval}", time_unit = concerto::TimeUnit::Minutes)]
 async fn report_task() {
     let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
     println!("[{}] 📊 [REPORT] Generating report every 30 minutes", now);
@@ -51,21 +51,21 @@ async fn thirty_seconds_shorthand() {
 }
 
 /// Task with hardcoded seconds time_unit
-#[scheduled(fixed_rate = 8, time_unit = scheduled::TimeUnit::Seconds)]
+#[scheduled(fixed_rate = 8, time_unit = concerto::TimeUnit::Seconds)]
 async fn eight_second_task() {
     let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
     println!("[{}] 🕐 [8-SEC] Running every 8 seconds (using TimeUnit::Seconds)", now);
 }
 
 /// Task with hardcoded hours time_unit
-#[scheduled(fixed_rate = 2, time_unit = scheduled::TimeUnit::Hours)]
+#[scheduled(fixed_rate = 2, time_unit = concerto::TimeUnit::Hours)]
 async fn cleanup_task() {
     let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
     println!("[{}] 🧹 [CLEANUP] Running cleanup every 2 hours (using TimeUnit::Hours)", now);
 }
 
 /// Task with days time_unit
-#[scheduled(fixed_rate = 1, time_unit = scheduled::TimeUnit::Days)]
+#[scheduled(fixed_rate = 1, time_unit = concerto::TimeUnit::Days)]
 async fn daily_summary_task() {
     let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
     println!("[{}] 📅 [DAILY] Daily summary task (using TimeUnit::Days)", now);
@@ -147,3 +147,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+

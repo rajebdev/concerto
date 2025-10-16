@@ -1,8 +1,14 @@
-# scheduled-rs
+# 🎻 Concerto
 
-Spring Boot-like task scheduling for Rust with configuration support.
+> **Orchestrate your scheduled tasks with precision timing**
 
-## Features
+Like a musical concerto where every instrument plays at the perfect moment, **Concerto** orchestrates your scheduled tasks with precision timing.
+
+Inspired by Spring Boot's `@Scheduled`, designed for Rust.
+
+---
+
+## ✨ Features
 
 - 🚀 **Simple API** - Annotation-based scheduling similar to Spring Boot's `@Scheduled`
 - ⏰ **Cron Support** - Full cron expression support with timezone
@@ -14,22 +20,22 @@ Spring Boot-like task scheduling for Rust with configuration support.
 - 🌍 **Timezone Support** - Specify timezone for cron expressions (e.g., "Asia/Jakarta")
 - 🔧 **Environment Variables** - Override config with environment variables
 
-## Installation
+## 📦 Installation
 
 Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-scheduled = { path = "./scheduled" }
+concerto = { path = "./concerto" }
 tokio = { version = "1", features = ["full"] }
 ```
 
-## Quick Start
+## 🚀 Quick Start
 
 ### Option 1: Function-based Tasks (Auto-discovery)
 
 ```rust
-use scheduled::{scheduled, SchedulerBuilder};
+use concerto::{scheduled, SchedulerBuilder};
 
 // Run every 5 minutes
 #[scheduled(cron = "0 */5 * * * *")]
@@ -63,9 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Option 2: Struct-based Tasks (Manual registration)
 
 ```rust
-use scheduled::{scheduled, Runnable, SchedulerBuilder};
-use std::pin::Pin;
-use std::future::Future;
+use concerto::{scheduled, Runnable, SchedulerBuilder};
 
 struct MyTask {
     name: String,
@@ -204,7 +208,7 @@ async fn every_30_seconds_v2() {
 }
 
 // Using time_unit with enum
-use scheduled::TimeUnit;
+use concerto::TimeUnit;
 
 #[scheduled(fixed_rate = 5, time_unit = TimeUnit::Minutes)]
 async fn every_5_minutes() {
@@ -297,7 +301,7 @@ async fn nested_config() {
 ### Custom Configuration
 
 ```rust
-use scheduled::{SchedulerBuilder};
+use concerto::SchedulerBuilder;
 use config::Config;
 
 #[tokio::main]
@@ -321,7 +325,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Using TOML/YAML Config Files
 
 ```rust
-use scheduled::{SchedulerBuilder};
+use concerto::SchedulerBuilder;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -371,7 +375,7 @@ handle.shutdown().await?;
 ### Example 1: Basic Scheduling
 
 ```rust
-use scheduled::scheduled;
+use concerto::scheduled;
 
 #[scheduled(fixed_rate = 10)]
 async fn health_check() {
@@ -559,23 +563,23 @@ async fn my_task() { }
 ## Project Structure
 
 ```
-scheduled-rs/
+concerto/
 ├── Cargo.toml                 # Workspace definition
 ├── README.md
-├── scheduled/                 # Main library
+├── concerto/                  # Main library
 │   ├── Cargo.toml
 │   └── src/
 │       └── lib.rs
-├── scheduled-macro/           # Procedural macro
+├── concerto-macro/            # Procedural macro
 │   ├── Cargo.toml
 │   └── src/
 │       └── lib.rs
-├── scheduled-runtime/         # Runtime & scheduler
+├── concerto-runtime/          # Runtime & scheduler
 │   ├── Cargo.toml
 │   └── src/
 │       └── lib.rs
 ├── examples/
-│   └── main.rs               # Example usage
+│   └── basic.rs              # Example usage
 └── config/
     └── application.toml      # Configuration file
 ```
@@ -613,8 +617,8 @@ async fn risky_operation() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Comparison with Spring Boot
 
-| Spring Boot | Rust scheduled-rs |
-|-------------|-------------------|
+| Spring Boot | Rust Concerto |
+|-------------|---------------|
 | `@Scheduled(cron = "...")` | `#[scheduled(cron = "...")]` |
 | `@Scheduled(fixedRate = 1000)` | `#[scheduled(fixed_rate = 1)]` |
 | `@Scheduled(fixedDelay = 1000)` | `#[scheduled(fixed_delay = 1)]` |
@@ -623,7 +627,7 @@ async fn risky_operation() -> Result<(), Box<dyn std::error::Error>> {
 | `application.properties` | `application.toml` |
 
 **Key Differences:**
-- Spring Boot uses milliseconds, this library uses seconds
+- Spring Boot uses milliseconds, Concerto defaults to seconds (but supports ms)
 - Spring Boot uses `@` annotations, Rust uses `#[...]` attributes
 - Configuration format: properties/yaml vs TOML (but YAML supported via config crate)
 
@@ -645,7 +649,11 @@ MIT OR Apache-2.0
 
 ## Roadmap
 
-- [ ] Support for time zones in cron expressions
+- [x] Cron expressions with timezone support
+- [x] Fixed rate and fixed delay scheduling
+- [x] Configuration file integration (TOML/YAML)
+- [x] Conditional task execution
+- [x] Compile-time validation
 - [ ] Task metrics and monitoring
 - [ ] Distributed task coordination
 - [ ] Web UI for task management
@@ -672,7 +680,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"]
 ### Basic Console Logging
 
 ```rust
-use scheduled::{scheduled, SchedulerBuilder};
+use concerto::{scheduled, SchedulerBuilder};
 use tracing_subscriber;
 
 #[scheduled(fixed_rate = "5s")]
@@ -832,10 +840,30 @@ async fn collect_metrics() {
 }
 ```
 
+## 🎵 Why "Concerto"?
+
+**Concerto** is named after the musical form where multiple instruments play together in perfect harmony and timing. Just like a conductor ensures every instrument enters at precisely the right moment, Concerto orchestrates your scheduled tasks to execute at exactly the right time.
+
+The name reflects our philosophy:
+- **Precision Timing** 🎯 - Like musical notes, tasks execute at the perfect moment
+- **Harmony** 🎶 - Multiple tasks work together seamlessly
+- **Orchestration** 🎻 - Centralized control over task scheduling
+- **Elegance** ✨ - Simple, beautiful API inspired by Spring Boot
+
+From Spring Boot's `@Scheduled` to Rust's Concerto - bringing enterprise-grade task scheduling to the Rust ecosystem.
+
+## 📄 License
+
+This project is licensed under MIT OR Apache-2.0
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
 ## Support
 
 For issues, questions, or contributions, please visit the GitHub repository.
 
 ---
 
-Made with ❤️ for the Rust community
+Made with ❤️ and 🎵 for the Rust community

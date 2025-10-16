@@ -1,4 +1,4 @@
-use scheduled::{scheduled, SchedulerBuilder, TimeUnit};
+use concerto::{scheduled, SchedulerBuilder, TimeUnit};
 use chrono::Local;
 
 /// Task with interval from config file (using milliseconds by default)
@@ -65,27 +65,27 @@ async fn half_second_shorthand() {
 }
 
 /// Task with TimeUnit::Seconds constant
-#[scheduled(fixed_rate = 10, time_unit = scheduled::TimeUnit::Seconds)]
+#[scheduled(fixed_rate = 10, time_unit = TimeUnit::Seconds)]
 async fn ten_second_task() {
     let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
     println!("[{}] 🕐 [10-SEC] This task runs every 10 seconds (using TimeUnit::Seconds)", now);
 }
 
 /// Task with TimeUnit::Hours constant
-#[scheduled(fixed_rate = 1, time_unit = scheduled::TimeUnit::Hours)]
+#[scheduled(fixed_rate = 1, time_unit = TimeUnit::Hours)]
 async fn hourly_task() {
     let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
     println!("[{}] ⏳ [HOURLY] This task runs every 1 hour (using TimeUnit::Hours)", now);
 }
 
 /// Task with TimeUnit::Minutes constant
-#[scheduled(fixed_rate = 5, time_unit = scheduled::TimeUnit::Minutes)]
+#[scheduled(fixed_rate = 5, time_unit = TimeUnit::Minutes)]
 async fn five_minute_task() {
     let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
     println!("[{}] ⏱️  [5-MIN] This task runs every 5 minutes (using TimeUnit::Minutes)", now);
 }
 
-/// Task with TimeUnit::Minutes (also works without scheduled:: prefix)
+/// Task with TimeUnit::Minutes (also works without concerto:: prefix)
 #[scheduled(fixed_rate = 10, time_unit = TimeUnit::Minutes)]
 async fn ten_minute_task() {
     let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
@@ -93,7 +93,7 @@ async fn ten_minute_task() {
 }
 
 /// Task with TimeUnit::Days constant
-#[scheduled(fixed_rate = 1, time_unit = scheduled::TimeUnit::Days)]
+#[scheduled(fixed_rate = 1, time_unit = TimeUnit::Days)]
 async fn daily_task() {
     let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
     println!("[{}] 📅 [DAILY] This task runs every 1 day (using TimeUnit::Days)", now);
@@ -192,4 +192,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+
 

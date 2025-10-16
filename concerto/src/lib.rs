@@ -1,7 +1,9 @@
-//! # Scheduled - Spring Boot-like Task Scheduling for Rust
+//! # Concerto - Orchestrate Your Scheduled Tasks with Precision
 //!
-//! This library provides a familiar annotation-based approach to task scheduling,
-//! similar to Spring Boot's `@Scheduled` annotation.
+//! Like a musical concerto where every instrument plays at the perfect moment,
+//! **concerto** orchestrates your scheduled tasks with precision timing.
+//!
+//! Inspired by Spring Boot's `@Scheduled` annotation, designed for Rust.
 //!
 //! ## Features
 //!
@@ -15,7 +17,7 @@
 //! ## Quick Start with SchedulerBuilder
 //!
 //! ```no_run
-//! use scheduled::{scheduled, SchedulerBuilder};
+//! use concerto::{scheduled, SchedulerBuilder};
 //!
 //! #[scheduled(cron = "0 */5 * * * *")]
 //! async fn every_five_minutes() {
@@ -77,10 +79,10 @@
 //! ```
 
 // Re-export macros
-pub use scheduled_macro::scheduled;
+pub use concerto_macro::scheduled;
 
 // Re-export core types
-pub use scheduled_runtime::{Runnable, SchedulerBuilder, TimeUnit};
+pub use concerto_runtime::{Runnable, SchedulerBuilder, TimeUnit};
 
-// Make scheduled_runtime available for macro expansion
-pub use scheduled_runtime;
+// Make concerto_runtime available for macro expansion
+pub use concerto_runtime;

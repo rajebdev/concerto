@@ -1,9 +1,9 @@
 # Workspace Cargo.toml
 [workspace]
 members = [
-    "scheduled-macro",
-    "scheduled-runtime",
-    "scheduled",
+    "concerto-macro",
+    "concerto-runtime",
+    "concerto",
 ]
 exclude = [
     "examples/with-config",

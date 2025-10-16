@@ -1,4 +1,4 @@
-use scheduled::{scheduled, Runnable, SchedulerBuilder};
+use concerto::{scheduled, Runnable, SchedulerBuilder};
 use chrono::Local;
 
 /// Example task struct
@@ -105,3 +105,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
