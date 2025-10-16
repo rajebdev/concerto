@@ -1,5 +1,6 @@
 use scheduled::{scheduled, SchedulerBuilder};
 use chrono::Local;
+use tracing_subscriber;
 
 /// Task with cron expression - runs every minute
 #[scheduled(cron = " * * * * *")]
@@ -31,6 +32,15 @@ async fn conditional_task() {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize tracing with DEBUG level to see detailed logs
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            std::env::var("RUST_LOG")
+                .unwrap_or_else(|_| "debug".to_string())
+        )
+        .with_target(false)
+        .init();
+
     println!("🚀 Starting advanced example...\n");
     println!("📝 Configuration:");
     println!("   - app.interval: Controls config_task interval");

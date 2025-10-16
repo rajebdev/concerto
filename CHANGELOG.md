@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - **PRODUCTION READY LOGGING**
+- **Replaced all `println!` and `eprintln!` with structured logging**
+  - Now uses `tracing` crate for production-grade observability
+  - Library emits structured logs with contextual information
+  - Zero overhead when tracing subscriber not initialized
+  
+- **Added comprehensive logging levels**:
+  - `INFO`: Scheduler lifecycle and task registration
+  - `DEBUG`: Detailed task configuration (cron expressions, intervals, time units)
+  - `WARN`: Configuration warnings and fallbacks
+  - `ERROR`: Task registration failures and critical errors
+  
+- **Structured log fields** for better observability:
+  - Task names, types, and schedule types
+  - Configuration values (intervals, time units, initial delays)
+  - Error messages with context
+  
+### Added
+- **LOGGING.md**: Comprehensive logging guide for library users
+- **README.md Logging Section**: Quick start guide for tracing setup
+- **Example with logging**: Updated `basic.rs` to demonstrate tracing setup
+
+### Improved
+- Better error messages with structured context
+- Config warnings now use `tracing::warn` instead of `eprintln!`
+- All internal logs follow consistent structured format
+
+### Note for Library Users
+⚠️ **You MUST initialize a tracing subscriber in your application to see logs**
+
+```rust
+// Add to your main() before creating scheduler
+tracing_subscriber::fmt()
+    .with_env_filter("info")
+    .init();
+```
+
+See [LOGGING.md](LOGGING.md) for full documentation.
+
 ### Changed - **BREAKING**
 - **Refactored SchedulerBuilder API**: Separated build and start phases
   - `SchedulerBuilder::build()` now returns `Scheduler` (not `Result`, pure setup)

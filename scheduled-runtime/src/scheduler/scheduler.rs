@@ -7,6 +7,7 @@ use crate::time_unit::TimeUnit;
 use config::Config;
 use std::sync::Arc;
 use tokio_cron_scheduler::{Job, JobScheduler};
+use tracing::{debug, error, info, warn};
 
 /// Configured scheduler ready to start
 /// This struct holds all configuration and tasks but hasn't started yet
@@ -23,9 +24,9 @@ impl Scheduler {
         time_unit_str: &str,
     ) -> TimeUnit {
         time_unit_str.parse().unwrap_or_else(|_| {
-            eprintln!(
-                "    Warning: Invalid time_unit '{}', using milliseconds",
-                time_unit_str
+            warn!(
+                time_unit = %time_unit_str,
+                "Invalid time_unit, using milliseconds as default"
             );
             TimeUnit::Milliseconds
         })
@@ -40,9 +41,9 @@ impl Scheduler {
             parsed_unit.to_millis(value)
         } else {
             let initial_delay_value: u64 = initial_delay.parse().unwrap_or_else(|_| {
-                eprintln!(
-                    "    Warning: Invalid initial_delay '{}', using 0",
-                    initial_delay
+                warn!(
+                    initial_delay = %initial_delay,
+                    "Invalid initial_delay value, using 0 as default"
                 );
                 0
             });
@@ -66,9 +67,11 @@ impl Scheduler {
     ) -> Result<(u64, TimeUnit, u64), Box<dyn std::error::Error>> {
         let (interval_value, effective_time_unit) =
             if let Some((value, parsed_unit)) = TimeUnit::parse_duration(interval_str) {
-                println!(
-                    "    Parsed shorthand: '{}' -> {} {:?}",
-                    interval_str, value, parsed_unit
+                debug!(
+                    interval = %interval_str,
+                    value = %value,
+                    time_unit = ?parsed_unit,
+                    "Parsed interval shorthand"
                 );
                 (value, parsed_unit)
             } else {
@@ -89,14 +92,19 @@ impl Scheduler {
         initial_delay_millis: u64,
         time_unit_str: &str,
     ) {
-        println!("    Type: cron");
-        println!("    Expression: {}", cron_expr);
-        println!("    Zone: {} (timezone for cron evaluation)", zone_display);
-        println!("    Initial delay: {}ms", initial_delay_millis);
+        debug!(
+            task_type = "cron",
+            cron_expression = %cron_expr,
+            zone = %zone_display,
+            initial_delay_ms = %initial_delay_millis,
+            "Cron task configuration"
+        );
 
         if time_unit_str.to_lowercase() != "milliseconds" {
-            println!("    ⚠️  Warning: time_unit parameter is ignored for cron expressions");
-            println!("        Cron uses absolute time (calendar-based), not intervals");
+            warn!(
+                time_unit = %time_unit_str,
+                "time_unit parameter is ignored for cron expressions (uses absolute calendar-based time)"
+            );
         }
     }
 
@@ -109,16 +117,20 @@ impl Scheduler {
         initial_delay_millis: u64,
         zone_str: &str,
     ) {
-        println!("    Type: {}", schedule_type);
-        println!(
-            "    Interval: {} {:?} ({}ms)",
-            interval_value, effective_time_unit, interval_millis
+        debug!(
+            task_type = %schedule_type,
+            interval_value = %interval_value,
+            time_unit = ?effective_time_unit,
+            interval_ms = %interval_millis,
+            initial_delay_ms = %initial_delay_millis,
+            "Interval-based task configuration"
         );
-        println!("    Initial delay: {}ms", initial_delay_millis);
 
         if zone_str.to_lowercase() != "local" {
-            println!("    ⚠️  Warning: zone parameter is ignored for interval-based tasks (fixed_rate/fixed_delay)");
-            println!("        Interval tasks always use local system time");
+            warn!(
+                zone = %zone_str,
+                "zone parameter is ignored for interval-based tasks (fixed_rate/fixed_delay use local system time)"
+            );
         }
     }
 
@@ -129,8 +141,13 @@ impl Scheduler {
         let total_method_tasks: usize = self.registered_instances.iter()
             .map(|inst| inst.methods.len())
             .sum();
-        println!("Starting scheduler with {} total tasks ({} from registered instances)...", 
-                 total_tasks + total_method_tasks, total_method_tasks);
+        
+        info!(
+            total_tasks = total_tasks + total_method_tasks,
+            direct_tasks = total_tasks,
+            method_tasks = total_method_tasks,
+            "Starting scheduler"
+        );
 
         let mut scheduler = JobScheduler::new().await?;
         let mut interval_handles = Vec::new();
@@ -139,7 +156,11 @@ impl Scheduler {
         for task in self.runnable_tasks {
             let enabled = resolve_config_value(task.enabled, &self.config)?;
             if enabled.to_lowercase() == "false" {
-                println!("  [DISABLED] {} (Runnable)", task.name);
+                debug!(
+                    task_name = %task.name,
+                    task_type = "Runnable",
+                    "Task disabled, skipping registration"
+                );
                 continue;
             }
 
@@ -152,7 +173,11 @@ impl Scheduler {
             )
             .await
             {
-                eprintln!("  [ERROR] Failed to register {}: {}", task_name, e);
+                error!(
+                    task_name = %task_name,
+                    error = %e,
+                    "Failed to register runnable task"
+                );
             }
         }
 
@@ -160,7 +185,11 @@ impl Scheduler {
         for task in self.scheduled_tasks {
             let enabled = resolve_config_value(task.enabled, &self.config)?;
             if enabled.to_lowercase() == "false" {
-                println!("  [DISABLED] {} (Scheduled)", task.name);
+                debug!(
+                    task_name = %task.name,
+                    task_type = "Scheduled",
+                    "Task disabled, skipping registration"
+                );
                 continue;
             }
 
@@ -173,7 +202,11 @@ impl Scheduler {
             )
             .await
             {
-                eprintln!("  [ERROR] Failed to register {}: {}", task_name, e);
+                error!(
+                    task_name = %task_name,
+                    error = %e,
+                    "Failed to register scheduled task"
+                );
             }
         }
 
@@ -182,8 +215,12 @@ impl Scheduler {
             for method_meta in &registered_instance.methods {
                 let enabled = resolve_config_value(method_meta.enabled, &self.config)?;
                 if enabled.to_lowercase() == "false" {
-                    println!("  [DISABLED] {}::{} (Method)", 
-                             registered_instance.type_name, method_meta.method_name);
+                    debug!(
+                        type_name = %registered_instance.type_name,
+                        method_name = %method_meta.method_name,
+                        task_type = "Method",
+                        "Task disabled, skipping registration"
+                    );
                     continue;
                 }
 
@@ -198,13 +235,17 @@ impl Scheduler {
                 )
                 .await
                 {
-                    eprintln!("  [ERROR] Failed to register {}: {}", task_name, e);
+                    error!(
+                        task_name = %task_name,
+                        error = %e,
+                        "Failed to register method task"
+                    );
                 }
             }
         }
 
         scheduler.start().await?;
-        println!("✅ Scheduler started successfully!");
+        info!("Scheduler started successfully");
 
         Ok(SchedulerHandle {
             cron_scheduler: scheduler,
@@ -219,7 +260,11 @@ impl Scheduler {
         config: &Arc<Config>,
         task: RunnableTask,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("  [REGISTER] {} (Runnable)", task.name);
+        info!(
+            task_name = %task.name,
+            task_type = "Runnable",
+            "Registering task"
+        );
 
         // Parse configuration values
         let time_unit_str = resolve_config_value(task.time_unit, config)?;
@@ -300,7 +345,12 @@ impl Scheduler {
                 });
 
                 interval_handles.push(handle);
-                println!("    ✅ Registered as tokio::interval task");
+                info!(
+                    task_name = %task.name,
+                    task_type = "Runnable",
+                    schedule_type = %task.schedule_type,
+                    "Task registered as tokio::interval task"
+                );
             }
             _ => {
                 return Err(format!("Unknown schedule type: {}", task.schedule_type).into());
@@ -317,7 +367,11 @@ impl Scheduler {
         config: &Arc<Config>,
         task: ScheduledTask,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("  [REGISTER] {} (Scheduled)", task.name);
+        info!(
+            task_name = %task.name,
+            task_type = "Scheduled",
+            "Registering task"
+        );
 
         // Parse configuration values
         let time_unit_str = resolve_config_value(task.time_unit, config)?;
@@ -390,7 +444,12 @@ impl Scheduler {
                 });
 
                 interval_handles.push(handle);
-                println!("    ✅ Registered as tokio::interval task");
+                info!(
+                    task_name = %task.name,
+                    task_type = "Scheduled",
+                    schedule_type = %task.schedule_type,
+                    "Task registered as tokio::interval task"
+                );
             }
             _ => {
                 return Err(format!("Unknown schedule type: {}", task.schedule_type).into());
@@ -409,7 +468,11 @@ impl Scheduler {
         method_meta: ScheduledMethodMetadata,
         task_name: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("  [REGISTER] {} (Method)", task_name);
+        info!(
+            task_name = %task_name,
+            task_type = "Method",
+            "Registering task"
+        );
 
         // Parse configuration values
         let time_unit_str = resolve_config_value(method_meta.time_unit, config)?;
@@ -494,7 +557,12 @@ impl Scheduler {
                 });
 
                 interval_handles.push(handle);
-                println!("    ✅ Registered as tokio::interval task");
+                info!(
+                    task_name = %task_name,
+                    task_type = "Method",
+                    schedule_type = %method_meta.schedule_type,
+                    "Task registered as tokio::interval task"
+                );
             }
             _ => {
                 return Err(format!("Unknown schedule type: {}", method_meta.schedule_type).into());

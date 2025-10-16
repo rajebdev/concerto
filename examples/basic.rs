@@ -1,6 +1,7 @@
 use scheduled::{scheduled, SchedulerBuilder};
 use std::sync::atomic::{AtomicU32, Ordering};
 use chrono::Local;
+use tracing_subscriber;
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -21,6 +22,12 @@ async fn slow_seconds_task() {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize tracing subscriber for structured logging
+    tracing_subscriber::fmt()
+        .with_env_filter("info")
+        .with_target(false)
+        .init();
+
     println!("🚀 Demonstrating MILLISECONDS vs SECONDS...\n");
     println!("📊 Task 1: Every 500ms (milliseconds)");
     println!("📊 Task 2: Every 2s (seconds)\n");

@@ -1,5 +1,6 @@
 use config::{Config, File, FileFormat};
 use std::path::Path;
+use tracing::warn;
 
 /// Load config from a specific TOML file
 pub fn load_toml_config<P: AsRef<Path>>(path: P) -> Result<Config, Box<dyn std::error::Error>> {
@@ -46,7 +47,11 @@ pub fn resolve_config_value(value: &str, config: &Config) -> Result<String, Box<
             if let Ok(resolved) = config.get_string(key) {
                 Ok(resolved)
             } else {
-                eprintln!("warning: config key '{}' not found, using default value '{}'", key, default_value);
+                warn!(
+                    config_key = %key,
+                    default_value = %default_value,
+                    "Config key not found, using default value"
+                );
                 Ok(default_value.to_string())
             }
         } else {

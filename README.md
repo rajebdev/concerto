@@ -655,6 +655,129 @@ MIT OR Apache-2.0
 - [ ] Task priority support
 - [ ] Concurrent execution limits
 
+## Logging
+
+This library uses the `tracing` crate for structured logging. **You need to initialize a tracing subscriber in your application** to see logs from the scheduler.
+
+### Quick Setup
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
+```
+
+### Basic Console Logging
+
+```rust
+use scheduled::{scheduled, SchedulerBuilder};
+use tracing_subscriber;
+
+#[scheduled(fixed_rate = "5s")]
+async fn my_task() {
+    println!("Task running!");
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize console logging with INFO level
+    tracing_subscriber::fmt()
+        .with_env_filter("info")
+        .init();
+    
+    let scheduler = SchedulerBuilder::new().build();
+    let handle = scheduler.start().await?;
+    
+    tokio::signal::ctrl_c().await?;
+    handle.shutdown().await?;
+    Ok(())
+}
+```
+
+### Production Logging (JSON format)
+
+```rust
+use tracing_subscriber::{fmt, EnvFilter};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // JSON formatted logging for production
+    tracing_subscriber::fmt()
+        .json()
+        .with_env_filter(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new("info"))
+        )
+        .init();
+    
+    // ... rest of your code
+}
+```
+
+### Log Levels
+
+The library logs at different levels:
+
+- **INFO**: Scheduler startup, task registration, and success messages
+  - `Scheduler started successfully`
+  - `Task registered as tokio::interval task`
+  
+- **DEBUG**: Detailed task configuration (intervals, cron expressions, time units)
+  - `Cron task configuration`
+  - `Interval-based task configuration`
+  - `Task disabled, skipping registration`
+  
+- **WARN**: Configuration warnings and non-critical issues
+  - `Invalid time_unit, using milliseconds as default`
+  - `Config key not found, using default value`
+  
+- **ERROR**: Task registration failures and critical errors
+  - `Failed to register runnable task`
+
+### Environment Variables
+
+Control log level via environment variable:
+
+```bash
+# Windows PowerShell
+$env:RUST_LOG="debug"
+cargo run
+
+# Linux/Mac
+RUST_LOG=debug cargo run
+```
+
+### Filter by Module
+
+```rust
+// Only show scheduler logs at debug level, everything else at info
+tracing_subscriber::fmt()
+    .with_env_filter("info,scheduled_runtime=debug")
+    .init();
+```
+
+### Structured Logging Example
+
+The library outputs structured logs that can be parsed by log aggregation tools:
+
+```json
+{
+  "timestamp": "2025-10-16T10:30:00Z",
+  "level": "INFO",
+  "fields": {
+    "message": "Registering task",
+    "task_name": "my_scheduled_task",
+    "task_type": "Scheduled"
+  },
+  "target": "scheduled_runtime::scheduler::scheduler"
+}
+```
+
+### No Logging Setup?
+
+If you don't initialize a tracing subscriber, **the library will not output any logs**. This is intentional - it gives you full control over logging in your application.
+
 ## FAQ
 
 **Q: Can I use this in production?**
@@ -674,6 +797,9 @@ A: Use `tokio::task::spawn_blocking` for CPU-intensive or blocking operations.
 
 **Q: How do I test scheduled tasks?**
 A: You can call the task functions directly in tests, or use custom configs with very short intervals.
+
+**Q: Why don't I see any logs from the scheduler?**
+A: You need to initialize a `tracing-subscriber` in your application. See the [Logging](#logging) section above.
 
 ## Examples in the Wild
 

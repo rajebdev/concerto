@@ -9,3 +9,4 @@ tokio-cron-scheduler = { workspace = true }
 config = { workspace = true }
 serde = { workspace = true }
 linkme = { workspace = true }
+tracing = { workspace = true }

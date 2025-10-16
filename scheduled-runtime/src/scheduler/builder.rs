@@ -4,6 +4,7 @@ use crate::config::{load_toml_config, load_yaml_config};
 use crate::runnable::RunnableTask;
 use config::Config;
 use std::sync::Arc;
+use tracing::info;
 
 /// Builder for the scheduler
 pub struct SchedulerBuilder {
@@ -192,11 +193,11 @@ impl SchedulerBuilder {
             .map(|inst| inst.methods.len())
             .sum();
 
-        println!(
-            "Building scheduler with {} runnable tasks, {} scheduled tasks, and {} method tasks",
-            self.runnable_tasks.len(),
-            scheduled_tasks.len(),
-            method_task_count
+        info!(
+            runnable_tasks = self.runnable_tasks.len(),
+            scheduled_tasks = scheduled_tasks.len(),
+            method_tasks = method_task_count,
+            "Building scheduler"
         );
 
         Scheduler {
