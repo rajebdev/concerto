@@ -28,7 +28,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-concerto = { git = "https://github.com/rajebdev/concerto.git", tag = "v0.1.0" }
+concerto = { git = "https://github.com/jatis-mobile/concerto.git", tag = "v0.1.0" }
 tokio = { version = "1", features = ["full"] }
 tracing-subscriber = "0.3"  # For logging
 ```

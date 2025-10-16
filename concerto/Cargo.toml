@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["Your Name <your.email@example.com>"]
 license = "MIT OR Apache-2.0"
 description = "Orchestrate your scheduled tasks with precision timing - Spring Boot-like scheduling for Rust"
-repository = "https://github.com/rajebdev/concerto-rs"
+repository = "https://github.com/jatis-mobile/concerto-rs"
 keywords = ["scheduler", "cron", "task", "scheduled", "concerto"]
 categories = ["asynchronous", "concurrency"]
 
