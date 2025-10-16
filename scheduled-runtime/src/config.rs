@@ -27,7 +27,7 @@ pub fn load_yaml_config<P: AsRef<Path>>(path: P) -> Result<Config, Box<dyn std::
 /// 
 /// # Examples
 /// 
-/// ```
+/// ```text
 /// // With default value - OK even if key not found
 /// ${app.interval:5s}
 /// 
@@ -43,12 +43,11 @@ pub fn resolve_config_value(value: &str, config: &Config) -> Result<String, Box<
             let key = &inner[..colon_pos];
             let default_value = &inner[colon_pos + 1..];
             
-            match config.get_string(key) {
-                Ok(resolved) => Ok(resolved),
-                Err(_) => {
-                    eprintln!("warning: config key '{}' not found, using default value '{}'", key, default_value);
-                    Ok(default_value.to_string())
-                }
+            if let Ok(resolved) = config.get_string(key) {
+                Ok(resolved)
+            } else {
+                eprintln!("warning: config key '{}' not found, using default value '{}'", key, default_value);
+                Ok(default_value.to_string())
             }
         } else {
             // No default value - key MUST exist
@@ -68,7 +67,7 @@ pub fn resolve_config_value(value: &str, config: &Config) -> Result<String, Box<
                          \n\
                          Example: ${{{0}:5s}} for a 5 second default",
                         inner, 
-                        inner.split('.').last().unwrap_or(inner),
+                        inner.split('.').next_back().unwrap_or(inner),
                         inner
                     ).into())
                 }

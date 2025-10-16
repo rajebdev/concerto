@@ -1,7 +1,6 @@
 /// Example: Using #[scheduled] on methods within impl block
 /// This demonstrates how to mark methods with #[scheduled]
 /// and the scheduler will auto-discover them when you register the instance.
-
 use scheduled::{scheduled, SchedulerBuilder};
 
 /// User handler with multiple scheduled methods
@@ -41,6 +40,8 @@ impl UserHandler {
     }
 
     /// Regular method without #[scheduled] - won't be auto-executed
+    /// This demonstrates that not all methods in the impl block need to be scheduled.
+    #[allow(dead_code)]
     async fn regular_method(&self) {
         println!("[{}] This is a regular method, not scheduled", self.name);
     }

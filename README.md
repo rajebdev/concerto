@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Option 2: Struct-based Tasks (Manual registration)
 
 ```rust
-use scheduled::{scheduled, Runnable, ScheduledMetadata, SchedulerBuilder};
+use scheduled::{scheduled, Runnable, SchedulerBuilder};
 use std::pin::Pin;
 use std::future::Future;
 

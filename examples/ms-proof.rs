@@ -11,7 +11,7 @@ static START_TIME: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
 async fn super_fast_10ms() {
     let count = COUNTER_10MS.fetch_add(1, Ordering::SeqCst) + 1;
     let elapsed = START_TIME.get().unwrap().elapsed().as_millis();
-    if count % 10 == 0 || count <= 5 {  // Print every 10th to avoid spam
+    if count.is_multiple_of(10) || count <= 5 {  // Print every 10th to avoid spam
         println!("[{}ms] 10ms task #{}", elapsed, count);
     }
 }

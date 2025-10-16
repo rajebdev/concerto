@@ -8,21 +8,25 @@ pub enum TimeUnit {
     Days,
 }
 
-impl TimeUnit {
+impl std::str::FromStr for TimeUnit {
+    type Err = String;
+
     /// Parse TimeUnit from string representation.
     /// Only accepts full lowercase enum names: "milliseconds", "seconds", "minutes", "hours", "days"
     /// For shorthand notations like "5s", "10m", use `parse_duration` instead.
-    pub fn from_str(s: &str) -> Option<Self> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "milliseconds" => Some(TimeUnit::Milliseconds),
-            "seconds" => Some(TimeUnit::Seconds),
-            "minutes" => Some(TimeUnit::Minutes),
-            "hours" => Some(TimeUnit::Hours),
-            "days" => Some(TimeUnit::Days),
-            _ => None,
+            "milliseconds" => Ok(TimeUnit::Milliseconds),
+            "seconds" => Ok(TimeUnit::Seconds),
+            "minutes" => Ok(TimeUnit::Minutes),
+            "hours" => Ok(TimeUnit::Hours),
+            "days" => Ok(TimeUnit::Days),
+            _ => Err(format!("Invalid time unit: {}", s)),
         }
     }
+}
 
+impl TimeUnit {
     pub fn to_millis(&self, value: u64) -> u64 {
         match self {
             TimeUnit::Milliseconds => value,
@@ -87,25 +91,74 @@ pub struct ScheduledTask {
 }
 
 impl ScheduledTask {
-    pub fn new(
-        name: &'static str,
-        schedule_type: &'static str,
-        schedule_value: &'static str,
-        initial_delay: &'static str,
-        enabled: &'static str,
-        time_unit: &'static str,
-        zone: &'static str,
-        handler: fn(),
-    ) -> Self {
-        Self {
+    /// Create a new builder for ScheduledTask
+    pub fn builder(name: &'static str, handler: fn()) -> ScheduledTaskBuilder {
+        ScheduledTaskBuilder {
             name,
-            schedule_type,
-            schedule_value,
-            initial_delay,
-            enabled,
-            time_unit,
-            zone,
+            schedule_type: "cron",
+            schedule_value: "0 0 * * * *",
+            initial_delay: "0",
+            enabled: "true",
+            time_unit: "seconds",
+            zone: "UTC",
             handler,
+        }
+    }
+}
+
+/// Builder for ScheduledTask
+pub struct ScheduledTaskBuilder {
+    name: &'static str,
+    schedule_type: &'static str,
+    schedule_value: &'static str,
+    initial_delay: &'static str,
+    enabled: &'static str,
+    time_unit: &'static str,
+    zone: &'static str,
+    handler: fn(),
+}
+
+impl ScheduledTaskBuilder {
+    pub fn schedule_type(mut self, schedule_type: &'static str) -> Self {
+        self.schedule_type = schedule_type;
+        self
+    }
+
+    pub fn schedule_value(mut self, schedule_value: &'static str) -> Self {
+        self.schedule_value = schedule_value;
+        self
+    }
+
+    pub fn initial_delay(mut self, initial_delay: &'static str) -> Self {
+        self.initial_delay = initial_delay;
+        self
+    }
+
+    pub fn enabled(mut self, enabled: &'static str) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
+    pub fn time_unit(mut self, time_unit: &'static str) -> Self {
+        self.time_unit = time_unit;
+        self
+    }
+
+    pub fn zone(mut self, zone: &'static str) -> Self {
+        self.zone = zone;
+        self
+    }
+
+    pub fn build(self) -> ScheduledTask {
+        ScheduledTask {
+            name: self.name,
+            schedule_type: self.schedule_type,
+            schedule_value: self.schedule_value,
+            initial_delay: self.initial_delay,
+            enabled: self.enabled,
+            time_unit: self.time_unit,
+            zone: self.zone,
+            handler: self.handler,
         }
     }
 }

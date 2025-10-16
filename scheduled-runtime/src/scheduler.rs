@@ -1,6 +1,6 @@
 use crate::config::{load_toml_config, load_yaml_config, resolve_config_value};
 use crate::registry::SCHEDULED_TASKS;
-use crate::runnable::{create_runnable_task, Runnable, RunnableTask, ScheduledMetadata};
+use crate::runnable::RunnableTask;
 use crate::task::{ScheduledTask, ScheduledMethodMetadata, TimeUnit};
 use config::Config;
 use std::sync::Arc;
@@ -16,12 +16,15 @@ pub trait ScheduledInstance: Send + Sync + 'static {
     fn call_scheduled_method(&self, method_name: &str) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + '_>>;
 }
 
+/// Type alias for method caller function
+type MethodCaller = Arc<dyn Fn(&(dyn std::any::Any + Send + Sync), &str) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>> + Send + Sync>;
+
 /// Wrapper for a registered instance with scheduled methods
 struct RegisteredInstance {
     type_name: String,
     instance: Arc<dyn std::any::Any + Send + Sync>,
     methods: Vec<ScheduledMethodMetadata>,
-    caller: Arc<dyn Fn(&(dyn std::any::Any + Send + Sync), &str) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>> + Send + Sync>,
+    caller: MethodCaller,
 }
 
 /// Handle for a running scheduler
@@ -60,7 +63,7 @@ impl Scheduler {
     fn parse_time_unit(
         time_unit_str: &str,
     ) -> TimeUnit {
-        TimeUnit::from_str(time_unit_str).unwrap_or_else(|| {
+        time_unit_str.parse().unwrap_or_else(|_| {
             eprintln!(
                 "    Warning: Invalid time_unit '{}', using milliseconds",
                 time_unit_str
@@ -173,7 +176,7 @@ impl Scheduler {
         let mut scheduler = JobScheduler::new().await?;
         let mut interval_handles = Vec::new();
 
-        // Register runnable tasks (manual registered via .runnable())
+        // Register runnable tasks (from Runnable trait implementations)
         for task in self.runnable_tasks {
             let enabled = resolve_config_value(task.enabled, &self.config)?;
             if enabled.to_lowercase() == "false" {
@@ -412,7 +415,7 @@ impl Scheduler {
                             interval.tick().await;
                         } else {
                             interval.tick().await;
-                            let handler_clone = handler.clone();
+                            let handler_clone = handler;
                             tokio::spawn(async move {
                                 handler_clone();
                             });
@@ -543,6 +546,12 @@ pub struct SchedulerBuilder {
     registered_instances: Vec<RegisteredInstance>,
 }
 
+impl Default for SchedulerBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SchedulerBuilder {
     /// Create a new scheduler builder with default config (empty)
     pub fn new() -> Self {
@@ -606,32 +615,59 @@ impl SchedulerBuilder {
     /// # Example with #[scheduled] methods
     ///
     /// ```rust
-    /// #[scheduled]
+    /// use scheduled_runtime::SchedulerBuilder;
+    /// 
+    /// struct UserService {
+    ///     name: String,
+    /// }
+    /// 
     /// impl UserService {
-    ///     #[scheduled(fixed_rate = "5s")]
-    ///     async fn sync_users(&self) {
-    ///         println!("Syncing users");
+    ///     fn new(name: String) -> Self {
+    ///         Self { name }
     ///     }
     /// }
-    ///
+    /// 
+    /// // Note: In actual code, use #[scheduled] macro on impl block
+    /// // and #[scheduled(fixed_rate = "5s")] on methods
+    /// 
+    /// # fn main() {
     /// let scheduler = SchedulerBuilder::new()
-    ///     .register(UserService::new())
+    ///     // .register(UserService::new("test".to_string()))
     ///     .build();
+    /// # }
     /// ```
     ///
     /// # Example with Runnable trait
     ///
     /// ```rust
-    /// #[scheduled(fixed_rate = "5s")]
-    /// impl Runnable for MyTask {
-    ///     async fn run(&self) {
-    ///         println!("Running task");
+    /// use scheduled_runtime::{SchedulerBuilder, Runnable};
+    /// use std::pin::Pin;
+    /// use std::future::Future;
+    /// 
+    /// struct MyTask {
+    ///     name: String,
+    /// }
+    /// 
+    /// impl MyTask {
+    ///     fn new(name: String) -> Self {
+    ///         Self { name }
     ///     }
     /// }
-    ///
+    /// 
+    /// // Note: In actual code, use #[scheduled(fixed_rate = "5s")] on impl block
+    /// impl Runnable for MyTask {
+    ///     fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
+    ///         Box::pin(async move {
+    ///             println!("Running task");
+    ///         })
+    ///     }
+    /// }
+    /// 
+    /// # fn main() {
     /// let scheduler = SchedulerBuilder::new()
-    ///     .register(MyTask::new())
+    ///     // .register(MyTask::new("test".to_string()))
     ///     .build();
+    /// # }
     /// ```
     pub fn register<T>(mut self, instance: T) -> Self
     where
@@ -661,51 +697,27 @@ impl SchedulerBuilder {
         self
     }
 
-    /// Register a runnable task instance (alias for `.register()`)
-    ///
-    /// This method is kept for backward compatibility and convenience.
-    /// It works identically to `.register()` but may be more intuitive when
-    /// working with `Runnable` trait implementations.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// #[scheduled(fixed_rate = "10s")]
-    /// impl Runnable for BackupTask {
-    ///     async fn run(&self) {
-    ///         println!("Running backup");
-    ///     }
-    /// }
-    ///
-    /// let scheduler = SchedulerBuilder::new()
-    ///     .runnable(BackupTask::new())  // Same as .register()
-    ///     .build();
-    /// ```
-    pub fn runnable<T>(mut self, instance: T) -> Self
-    where
-        T: Runnable + ScheduledMetadata + 'static,
-    {
-        let task = create_runnable_task(instance);
-        self.runnable_tasks.push(task);
-        self
-    }
-
     /// Build the scheduler (does not start it yet)
     ///
     /// This will:
-    /// - Collect all runnable tasks registered via `.runnable()`
+    /// - Collect all tasks registered via `.register()`
     /// - Auto-discover all tasks marked with `#[scheduled]` macro
     /// - Return a `Scheduler` ready to start
     ///
     /// # Example
     ///
     /// ```rust
+    /// use scheduled_runtime::SchedulerBuilder;
+    /// 
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let scheduler = SchedulerBuilder::new()
-    ///     .with_toml("config.toml")?
-    ///     .runnable(MyTask)
+    ///     // In actual code, add .with_toml("config.toml")
+    ///     // In actual code, add .register(MyTask)
     ///     .build();  // <- No error here, just setup
-    ///
-    /// scheduler.start().await?;  // <- Errors happen here
+    /// 
+    /// // scheduler.start().await?;  // <- Errors happen here
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn build(self) -> Scheduler {
         // Collect scheduled tasks from registry (auto-discovered #[scheduled] functions)

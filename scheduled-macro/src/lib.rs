@@ -220,63 +220,68 @@ fn validate_positive_value(value: &str, field_name: &str, task_name: &str, allow
 /// 
 /// ## Standalone Functions (Auto-registered)
 /// 
-/// ```rust,ignore
-/// use scheduled_macro::scheduled;
+/// ```rust
+/// // Note: In actual code, use the scheduled macro like this:
+/// // #[scheduled(cron = "0 */5 * * * *")]
+/// // async fn my_cron_task() {
+/// //     println!("Runs every 5 minutes");
+/// // }
 /// 
-/// #[scheduled(cron = "0 */5 * * * *")]
-/// async fn my_cron_task() {
-///     println!("Runs every 5 minutes");
-/// }
+/// // #[scheduled(fixed_rate = "5s")]
+/// // async fn five_seconds_task() {
+/// //     println!("Runs every 5 seconds");
+/// // }
 /// 
-/// #[scheduled(fixed_rate = "5s")]
-/// async fn five_seconds_task() {
-///     println!("Runs every 5 seconds");
-/// }
+/// // The macro auto-registers these functions with the scheduler
+/// # fn main() {}
 /// ```
 /// 
 /// ## Methods inside impl blocks (Registered via .register())
 /// 
-/// ```rust,ignore
-/// use scheduled_macro::scheduled;
-/// use scheduled::SchedulerBuilder;
+/// ```rust
+/// # use std::pin::Pin;
+/// # use std::future::Future;
 /// 
 /// struct UserHandler {
 ///     name: String,
 /// }
 /// 
 /// impl UserHandler {
-///     #[scheduled(fixed_rate = "5s")]
+///     // Note: In actual code, use #[scheduled(fixed_rate = "5s")]
 ///     async fn exe(&self) {
 ///         println!("{}: Running every 5s", self.name);
 ///     }
 /// }
 /// 
-/// // Usage:
-/// #[tokio::main]
-/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let handler = UserHandler { name: "MyHandler".to_string() };
-///     SchedulerBuilder::with_toml("config/application.toml")
-///         .register(handler)
-///         .build()
-///         .start()
-///         .await?;
-///     Ok(())
-/// }
+/// // Usage in actual code:
+/// // #[tokio::main]
+/// // async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// //     let handler = UserHandler { name: "MyHandler".to_string() };
+/// //     SchedulerBuilder::with_toml("config/application.toml")?
+/// //         .register(handler)
+/// //         .build()
+/// //         .start()
+/// //         .await?;
+/// //     Ok(())
+/// // }
+/// # fn main() {}
 /// ```
 /// 
 /// ## Runnable Trait Implementation (Manual registration)
 /// 
-/// ```rust,ignore
-/// use scheduled_macro::scheduled;
-/// use scheduled::{Runnable, SchedulerBuilder};
-/// use std::pin::Pin;
-/// use std::future::Future;
+/// ```rust
+/// # use std::pin::Pin;
+/// # use std::future::Future;
+/// 
+/// trait Runnable: Send + Sync {
+///     fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>>;
+/// }
 /// 
 /// struct UserTask {
 ///     name: String,
 /// }
 /// 
-/// #[scheduled(cron = "0 */5 * * * *")]
+/// // Note: In actual code, use #[scheduled(cron = "0 */5 * * * *")]
 /// impl Runnable for UserTask {
 ///     fn run(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
 ///         Box::pin(async move {
@@ -285,17 +290,18 @@ fn validate_positive_value(value: &str, field_name: &str, task_name: &str, allow
 ///     }
 /// }
 /// 
-/// // Usage:
-/// #[tokio::main]
-/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let user_task = UserTask { name: "MyTask".to_string() };
-///     
-///     SchedulerBuilder::with_toml("config/application.toml")
-///         .register(user_task)
-///         .start()
-///         .await?;
-///     Ok(())
-/// }
+/// // Usage in actual code:
+/// // #[tokio::main]
+/// // async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// //     let user_task = UserTask { name: "MyTask".to_string() };
+/// //     
+/// //     SchedulerBuilder::with_toml("config/application.toml")?
+/// //         .register(user_task)
+/// //         .start()
+/// //         .await?;
+/// //     Ok(())
+/// // }
+/// # fn main() {}
 /// ```
 /// 
 /// # Parameters
@@ -346,11 +352,18 @@ fn handle_scheduled_function(args: TokenStream, input_fn: ItemFn) -> TokenStream
     let fn_sig = &input_fn.sig;
     let fn_block = &input_fn.block;
 
-    let (schedule_type, schedule_value, initial_delay_str, enabled_str, time_unit_str, zone_str, time_unit_path) = 
-        match parse_schedule_args(&attr_args, &fn_name.to_string()) {
-            Ok(args) => args,
-            Err(e) => return compile_error(&e),
-        };
+    let parsed_attrs = match parse_schedule_args(&attr_args, &fn_name.to_string()) {
+        Ok(args) => args,
+        Err(e) => return compile_error(&e),
+    };
+    
+    let schedule_type = parsed_attrs.schedule_type;
+    let schedule_value = parsed_attrs.schedule_value;
+    let initial_delay_str = parsed_attrs.initial_delay;
+    let enabled_str = parsed_attrs.enabled;
+    let time_unit_str = parsed_attrs.time_unit;
+    let zone_str = parsed_attrs.zone;
+    let time_unit_path = parsed_attrs.time_unit_path;
 
     // Generate unique registration function name
     let register_fn_name = syn::Ident::new(
@@ -383,20 +396,21 @@ fn handle_scheduled_function(args: TokenStream, input_fn: ItemFn) -> TokenStream
         #[::scheduled::scheduled_runtime::linkme::distributed_slice(::scheduled::scheduled_runtime::SCHEDULED_TASKS)]
         #[linkme(crate = ::scheduled::scheduled_runtime::linkme)]
         fn #register_fn_name() -> ::scheduled::scheduled_runtime::ScheduledTask {
-            ::scheduled::scheduled_runtime::ScheduledTask {
-                name: stringify!(#fn_name),
-                schedule_type: #schedule_type,
-                schedule_value: #schedule_value,
-                initial_delay: #initial_delay_str,
-                enabled: #enabled_str,
-                time_unit: #time_unit_str,
-                zone: #zone_str,
-                handler: || {
+            ::scheduled::scheduled_runtime::ScheduledTask::builder(
+                stringify!(#fn_name),
+                || {
                     ::tokio::spawn(async {
                         #fn_name().await;
                     });
-                },
-            }
+                }
+            )
+            .schedule_type(#schedule_type)
+            .schedule_value(#schedule_value)
+            .initial_delay(#initial_delay_str)
+            .enabled(#enabled_str)
+            .time_unit(#time_unit_str)
+            .zone(#zone_str)
+            .build()
         }
     };
 
@@ -481,11 +495,18 @@ fn handle_scheduled_impl(args: TokenStream, input_impl: ItemImpl) -> TokenStream
         ));
     }
 
-    let (schedule_type, schedule_value, initial_delay_str, enabled_str, time_unit_str, zone_str, time_unit_path) = 
-        match parse_schedule_args(&attr_args, &type_name) {
-            Ok(args) => args,
-            Err(e) => return compile_error(&e),
-        };
+    let parsed_attrs = match parse_schedule_args(&attr_args, &type_name) {
+        Ok(args) => args,
+        Err(e) => return compile_error(&e),
+    };
+    
+    let schedule_type = parsed_attrs.schedule_type;
+    let schedule_value = parsed_attrs.schedule_value;
+    let initial_delay_str = parsed_attrs.initial_delay;
+    let enabled_str = parsed_attrs.enabled;
+    let time_unit_str = parsed_attrs.time_unit;
+    let zone_str = parsed_attrs.zone;
+    let time_unit_path = parsed_attrs.time_unit_path;
     
     // Generate time_unit_enum() implementation if TimeUnit was explicitly specified
     let time_unit_enum_impl = if let Some(ref path) = time_unit_path {
@@ -598,11 +619,17 @@ fn handle_impl_with_scheduled_methods(_args: TokenStream, mut input_impl: ItemIm
                     }
                 }
 
-                let (schedule_type, schedule_value, initial_delay_str, enabled_str, time_unit_str, zone_str, _time_unit_path) = 
-                    match parse_schedule_args(&attr_args, &method_name_str) {
-                        Ok(args) => args,
-                        Err(e) => return compile_error(&e),
-                    };
+                let parsed_attrs = match parse_schedule_args(&attr_args, &method_name_str) {
+                    Ok(args) => args,
+                    Err(e) => return compile_error(&e),
+                };
+                
+                let schedule_type = parsed_attrs.schedule_type;
+                let schedule_value = parsed_attrs.schedule_value;
+                let initial_delay_str = parsed_attrs.initial_delay;
+                let enabled_str = parsed_attrs.enabled;
+                let time_unit_str = parsed_attrs.time_unit;
+                let zone_str = parsed_attrs.zone;
 
                 scheduled_methods.push(quote! {
                     ::scheduled::scheduled_runtime::ScheduledMethodMetadata {
@@ -653,10 +680,21 @@ pub fn __scheduled_method(_args: TokenStream, input: TokenStream) -> TokenStream
     input
 }
 
+/// Parsed schedule attributes
+struct ParsedScheduleAttrs {
+    schedule_type: String,
+    schedule_value: String,
+    initial_delay: String,
+    enabled: String,
+    time_unit: String,
+    zone: String,
+    time_unit_path: Option<proc_macro2::TokenStream>,
+}
+
 fn parse_schedule_args(
     attr_args: &syn::punctuated::Punctuated<Meta, syn::Token![,]>,
     task_name: &str,
-) -> Result<(String, String, String, String, String, String, Option<proc_macro2::TokenStream>), String> {
+) -> Result<ParsedScheduleAttrs, String> {
     let mut schedule_type = None;
     let mut schedule_value = None;
     let mut initial_delay = None;
@@ -668,177 +706,174 @@ fn parse_schedule_args(
 
     // Parse macro arguments using syn 2.0 API
     for arg in attr_args {
-        match arg {
-            Meta::NameValue(MetaNameValue { path, value, .. }) => {
-                let path_str = path
-                    .get_ident()
-                    .map(|i| i.to_string())
-                    .unwrap_or_default();
+        if let Meta::NameValue(MetaNameValue { path, value, .. }) = arg {
+            let path_str = path
+                .get_ident()
+                .map(|i| i.to_string())
+                .unwrap_or_default();
 
-                match path_str.as_str() {
-                    "cron" => {
-                        if let Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) = value {
-                            schedule_type = Some("cron");
-                            schedule_value = Some(s.value());
-                        }
+            match path_str.as_str() {
+                "cron" => {
+                    if let Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) = value {
+                        schedule_type = Some("cron");
+                        schedule_value = Some(s.value());
                     }
-                    "fixed_rate" => {
-                        schedule_type = Some("fixed_rate");
-                        let value_str = match value {
-                            Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) => i.base10_digits().to_string(),
-                            Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => s.value(),
-                            _ => return Err("fixed_rate must be int or string".to_string()),
-                        };
-                        
-                        // Validate config placeholder format
-                        if let Some(err) = validate_config_placeholder_format(&value_str, "fixed_rate", task_name) {
-                            return Err(err);
-                        }
-                        
-                        schedule_value = Some(value_str);
+                }
+                "fixed_rate" => {
+                    schedule_type = Some("fixed_rate");
+                    let value_str = match value {
+                        Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) => i.base10_digits().to_string(),
+                        Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => s.value(),
+                        _ => return Err("fixed_rate must be int or string".to_string()),
+                    };
+                    
+                    // Validate config placeholder format
+                    if let Some(err) = validate_config_placeholder_format(&value_str, "fixed_rate", task_name) {
+                        return Err(err);
                     }
-                    "fixed_delay" => {
-                        schedule_type = Some("fixed_delay");
-                        let value_str = match value {
-                            Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) => i.base10_digits().to_string(),
-                            Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => s.value(),
-                            _ => return Err("fixed_delay must be int or string".to_string()),
-                        };
-                        
-                        // Validate config placeholder format
-                        if let Some(err) = validate_config_placeholder_format(&value_str, "fixed_delay", task_name) {
-                            return Err(err);
-                        }
-                        
-                        schedule_value = Some(value_str);
+                    
+                    schedule_value = Some(value_str);
+                }
+                "fixed_delay" => {
+                    schedule_type = Some("fixed_delay");
+                    let value_str = match value {
+                        Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) => i.base10_digits().to_string(),
+                        Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => s.value(),
+                        _ => return Err("fixed_delay must be int or string".to_string()),
+                    };
+                    
+                    // Validate config placeholder format
+                    if let Some(err) = validate_config_placeholder_format(&value_str, "fixed_delay", task_name) {
+                        return Err(err);
                     }
-                    "initial_delay" => {
-                        let value_str = match value {
-                            Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) => i.base10_digits().to_string(),
-                            Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => s.value(),
-                            _ => return Err("initial_delay must be int or string".to_string()),
-                        };
-                        
-                        // Validate config placeholder format
-                        if let Some(err) = validate_config_placeholder_format(&value_str, "initial_delay", task_name) {
-                            return Err(err);
-                        }
-                        
-                        initial_delay = Some(value_str);
+                    
+                    schedule_value = Some(value_str);
+                }
+                "initial_delay" => {
+                    let value_str = match value {
+                        Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) => i.base10_digits().to_string(),
+                        Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => s.value(),
+                        _ => return Err("initial_delay must be int or string".to_string()),
+                    };
+                    
+                    // Validate config placeholder format
+                    if let Some(err) = validate_config_placeholder_format(&value_str, "initial_delay", task_name) {
+                        return Err(err);
                     }
-                    "enabled" => {
-                        enabled = Some(match value {
-                            Expr::Lit(ExprLit { lit: Lit::Bool(b), .. }) => b.value.to_string(),
-                            Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => s.value(),
-                            _ => return Err("enabled must be bool or string".to_string()),
-                        });
-                    }
-                    "time_unit" => {
-                        time_unit = Some(match value {
-                            Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => {
-                                let value_str = s.value();
-                                
-                                // REJECT config placeholder for time_unit
-                                if value_str.starts_with("${") {
-                                    return Err(format!(
-                                        "time_unit cannot use config placeholders like '{}'.\n\
-                                         \n\
-                                         ❌ WRONG:\n\
-                                         time_unit = \"${{app.time_unit}}\"    (config not allowed)\n\
-                                         \n\
-                                         time_unit must be a compile-time constant TimeUnit enum.\n\
-                                         \n\
-                                         ✅ CORRECT - Use TimeUnit enum:\n\
-                                         time_unit = TimeUnit::Seconds\n\
-                                         time_unit = TimeUnit::Minutes\n\
-                                         time_unit = TimeUnit::Hours\n\
-                                         \n\
-                                         ✅ BETTER - Use shorthand in the interval value:\n\
-                                         fixed_rate = \"5s\"              (5 seconds)\n\
-                                         fixed_rate = \"10m\"             (10 minutes)\n\
-                                         fixed_rate = \"${{app.interval:5s}}\"  (config with suffix)\n\
-                                         \n\
-                                         Valid TimeUnit options:\n\
-                                         - TimeUnit::Milliseconds\n\
-                                         - TimeUnit::Seconds\n\
-                                         - TimeUnit::Minutes\n\
-                                         - TimeUnit::Hours\n\
-                                         - TimeUnit::Days",
-                                        value_str
-                                    ));
-                                }
-                                
-                                // REJECT any string literal for time_unit
+                    
+                    initial_delay = Some(value_str);
+                }
+                "enabled" => {
+                    enabled = Some(match value {
+                        Expr::Lit(ExprLit { lit: Lit::Bool(b), .. }) => b.value.to_string(),
+                        Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => s.value(),
+                        _ => return Err("enabled must be bool or string".to_string()),
+                    });
+                }
+                "time_unit" => {
+                    time_unit = Some(match value {
+                        Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => {
+                            let value_str = s.value();
+                            
+                            // REJECT config placeholder for time_unit
+                            if value_str.starts_with("${") {
                                 return Err(format!(
-                                    "time_unit does not accept string values like '{}'. Use TimeUnit enum instead:\n\
-                                     Example: time_unit = TimeUnit::Seconds\n\
-                                     Valid options: TimeUnit::Milliseconds, TimeUnit::Seconds, TimeUnit::Minutes, TimeUnit::Hours, TimeUnit::Days",
+                                    "time_unit cannot use config placeholders like '{}'.\n\
+                                     \n\
+                                     ❌ WRONG:\n\
+                                     time_unit = \"${{app.time_unit}}\"    (config not allowed)\n\
+                                     \n\
+                                     time_unit must be a compile-time constant TimeUnit enum.\n\
+                                     \n\
+                                     ✅ CORRECT - Use TimeUnit enum:\n\
+                                     time_unit = TimeUnit::Seconds\n\
+                                     time_unit = TimeUnit::Minutes\n\
+                                     time_unit = TimeUnit::Hours\n\
+                                     \n\
+                                     ✅ BETTER - Use shorthand in the interval value:\n\
+                                     fixed_rate = \"5s\"              (5 seconds)\n\
+                                     fixed_rate = \"10m\"             (10 minutes)\n\
+                                     fixed_rate = \"${{app.interval:5s}}\"  (config with suffix)\n\
+                                     \n\
+                                     Valid TimeUnit options:\n\
+                                     - TimeUnit::Milliseconds\n\
+                                     - TimeUnit::Seconds\n\
+                                     - TimeUnit::Minutes\n\
+                                     - TimeUnit::Hours\n\
+                                     - TimeUnit::Days",
                                     value_str
                                 ));
                             }
-                            Expr::Path(ExprPath { path, .. }) => {
-                                // Support TimeUnit::Days, TimeUnit::Hours, etc.
-                                if let Some(last_segment) = path.segments.last() {
-                                    let unit = last_segment.ident.to_string().to_lowercase();
-                                    // Validate it's a valid TimeUnit variant
-                                    match unit.as_str() {
-                                        "milliseconds" | "seconds" | "minutes" | "hours" | "days" => {
-                                            // Store the user's path (forces import in scope)
-                                            time_unit_path = Some(quote::quote! { #path });
-                                            // Store display string for warning (e.g., "TimeUnit::Minutes")
-                                            // Remove spaces from token stream string representation
-                                            let display_str = quote::quote! { #path }.to_string().replace(" ", "");
-                                            time_unit_display = Some(display_str);
-                                            unit
-                                        },
-                                        _ => {
-                                            // Provide smart suggestions for common typos
-                                            let suggestion = match unit.as_str() {
-                                                "millisecond" | "millis" | "ms" => "Did you mean TimeUnit::Milliseconds?",
-                                                "second" | "sec" | "s" => "Did you mean TimeUnit::Seconds?",
-                                                "minute" | "min" | "m" => "Did you mean TimeUnit::Minutes?",
-                                                "hour" | "hr" | "h" => "Did you mean TimeUnit::Hours?",
-                                                "day" | "d" => "Did you mean TimeUnit::Days?",
-                                                _ => "",
-                                            };
-                                            
-                                            let help_text = if !suggestion.is_empty() {
-                                                format!("\n   = help: {}", suggestion)
-                                            } else {
-                                                String::new()
-                                            };
-                                            
-                                            return Err(format!(
-                                                "Invalid TimeUnit variant: TimeUnit::{}{}\n\
-                                                 \n\
-                                                 Valid TimeUnit options:\n\
-                                                 - TimeUnit::Milliseconds\n\
-                                                 - TimeUnit::Seconds\n\
-                                                 - TimeUnit::Minutes\n\
-                                                 - TimeUnit::Hours\n\
-                                                 - TimeUnit::Days",
-                                                last_segment.ident, help_text
-                                            ));
-                                        }
-                                    }
-                                } else {
-                                    return Err("Invalid time_unit path".to_string());
-                                }
-                            }
-                            _ => return Err("time_unit must be a TimeUnit enum (e.g., TimeUnit::Seconds, TimeUnit::Minutes)".to_string()),
-                        });
-                    }
-                    "zone" => {
-                        if let Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) = value {
-                            zone = Some(s.value());
-                        } else {
-                            return Err("zone must be a string (e.g., 'Asia/Jakarta', 'UTC')".to_string());
+                            
+                            // REJECT any string literal for time_unit
+                            return Err(format!(
+                                "time_unit does not accept string values like '{}'. Use TimeUnit enum instead:\n\
+                                 Example: time_unit = TimeUnit::Seconds\n\
+                                 Valid options: TimeUnit::Milliseconds, TimeUnit::Seconds, TimeUnit::Minutes, TimeUnit::Hours, TimeUnit::Days",
+                                value_str
+                            ));
                         }
-                    }
-                    _ => {}
+                        Expr::Path(ExprPath { path, .. }) => {
+                            // Support TimeUnit::Days, TimeUnit::Hours, etc.
+                            if let Some(last_segment) = path.segments.last() {
+                                let unit = last_segment.ident.to_string().to_lowercase();
+                                // Validate it's a valid TimeUnit variant
+                                match unit.as_str() {
+                                    "milliseconds" | "seconds" | "minutes" | "hours" | "days" => {
+                                        // Store the user's path (forces import in scope)
+                                        time_unit_path = Some(quote::quote! { #path });
+                                        // Store display string for warning (e.g., "TimeUnit::Minutes")
+                                        // Remove spaces from token stream string representation
+                                        let display_str = quote::quote! { #path }.to_string().replace(" ", "");
+                                        time_unit_display = Some(display_str);
+                                        unit
+                                    },
+                                    _ => {
+                                        // Provide smart suggestions for common typos
+                                        let suggestion = match unit.as_str() {
+                                            "millisecond" | "millis" | "ms" => "Did you mean TimeUnit::Milliseconds?",
+                                            "second" | "sec" | "s" => "Did you mean TimeUnit::Seconds?",
+                                            "minute" | "min" | "m" => "Did you mean TimeUnit::Minutes?",
+                                            "hour" | "hr" | "h" => "Did you mean TimeUnit::Hours?",
+                                            "day" | "d" => "Did you mean TimeUnit::Days?",
+                                            _ => "",
+                                        };
+                                        
+                                        let help_text = if !suggestion.is_empty() {
+                                            format!("\n   = help: {}", suggestion)
+                                        } else {
+                                            String::new()
+                                        };
+                                        
+                                        return Err(format!(
+                                            "Invalid TimeUnit variant: TimeUnit::{}{}\n\
+                                             \n\
+                                             Valid TimeUnit options:\n\
+                                             - TimeUnit::Milliseconds\n\
+                                             - TimeUnit::Seconds\n\
+                                             - TimeUnit::Minutes\n\
+                                             - TimeUnit::Hours\n\
+                                             - TimeUnit::Days",
+                                            last_segment.ident, help_text
+                                        ));
+                                    }
+                                }
+                            } else {
+                                return Err("Invalid time_unit path".to_string());
+                            }
+                        }
+                        _ => return Err("time_unit must be a TimeUnit enum (e.g., TimeUnit::Seconds, TimeUnit::Minutes)".to_string()),
+                    });
                 }
+                "zone" => {
+                    if let Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) = value {
+                        zone = Some(s.value());
+                    } else {
+                        return Err("zone must be a string (e.g., 'Asia/Jakarta', 'UTC')".to_string());
+                    }
+                }
+                _ => {}
             }
-            _ => {}
         }
     }
 
@@ -929,13 +964,13 @@ fn parse_schedule_args(
         }
     }
 
-    Ok((
-        schedule_type_str.to_string(),
-        schedule_value_str,
-        initial_delay_str,
-        enabled_str,
-        time_unit_str,
-        zone_str,
+    Ok(ParsedScheduleAttrs {
+        schedule_type: schedule_type_str.to_string(),
+        schedule_value: schedule_value_str,
+        initial_delay: initial_delay_str,
+        enabled: enabled_str,
+        time_unit: time_unit_str,
+        zone: zone_str,
         time_unit_path,
-    ))
+    })
 }

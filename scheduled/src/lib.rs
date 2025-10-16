@@ -80,12 +80,7 @@
 pub use scheduled_macro::scheduled;
 
 // Re-export core types
-pub use scheduled_runtime::{
-    Runnable, ScheduledMetadata, SchedulerBuilder, TimeUnit,
-};
+pub use scheduled_runtime::{Runnable, SchedulerBuilder, TimeUnit};
 
 // Make scheduled_runtime available for macro expansion
 pub use scheduled_runtime;
-
-// Re-export commonly used types
-pub use tokio_cron_scheduler::JobScheduler;
